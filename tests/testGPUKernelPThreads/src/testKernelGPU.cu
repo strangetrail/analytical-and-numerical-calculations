@@ -471,6 +471,7 @@ bool testGPU                            \
 
 #endif
 
+      // TODO : I AM HERE : Fix an error with syncronisation in main loop:
       // Waiting until control stream sets `0':
       while ( hostWait4RefreshingChunk_WhileLoadingSlices ) {}
 
