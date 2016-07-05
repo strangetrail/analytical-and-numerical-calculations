@@ -1,0 +1,37 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* displacement_diffraction.max */
+
+mainr() := block
+(
+
+	A( yc) := block
+	(
+		yratio : abs(yc) / 5*9.0e-6,
+		if ( yratio < 0.20  )
+		then
+			return ( 1 - 2*0.8*0.20 ),
+		if ( yratio < 0.40  )
+		then
+			return ( 1 - 2*0.8*0.40 ),
+		if ( yratio < 0.60  )
+		then
+			return ( 1 - 2*0.8*0.60 ),
+		if ( yratio < 0.80  )
+		then
+			return ( 1 - 2*0.8*0.80 ),
+		return ( 1 - 2*0.8 )
+	),
+
+	U(rho, psib, z) := block
+	(
+		return ( integrate(integrate( ( A( r*sin(psia)  )   )  * exp ( -%i * 2*%pi * rho * rho_prime * cos (psib - psia) /(lambdawl*z) ) * rho_prime, rho_prime, 0, 0.005), psia, 0, 2*%pi) )
+	),
+
+	plot3d ( U(sqrt(xarg^2 + yarg^2), tan(yarg/xarg), 0.01), [xarg, -0.005, 0.005], [yarg, -0.005, 0.005], [title, "Дифракция на расстоянии"] ),
+
+	return ( done )
+
+)$

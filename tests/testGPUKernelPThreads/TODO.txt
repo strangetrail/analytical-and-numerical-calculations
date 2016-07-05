@@ -1,0 +1,5 @@
+                                                                              
+1) ctags can't distinguish default constructor and struct name when jumping  \
+    in vim with `CTRL'+`]' to definition/declaration from `typedef' alias to \
+    actual type definition.                                                   
+                                                                              

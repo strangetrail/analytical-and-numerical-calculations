@@ -1,0 +1,14 @@
+/*
+# vi:syntax=maxima
+*/
+/* funmake_test1.max */
+mainr():= block
+(
+  cget_val(p0) := block(return(p0)),
+  [F : I, u : x, v : y],
+  define (arraymake (F, [u, v]), testfoo(u, v) ),
+  idxs : [f_r, f_r],
+  testfoo(b, d) := block(if (b - d = 0) then return (d^b ) else return (d+b)),
+  print ( I[idxs[2], idxs[1]] ),
+  return (done)
+)$

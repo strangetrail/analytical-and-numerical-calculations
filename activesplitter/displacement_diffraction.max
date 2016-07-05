@@ -1,0 +1,96 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* displacement_diffraction.max */
+
+mainr() := block
+(
+
+	wavelength : 622.0e-9,/* m, red color */
+
+	size_pixel : 9.0e-6,/* m, SLM pixel */
+	size_image : 0.5e-3,/* m, the size of output mode for single waveguide in array */
+
+	length2screen : 0.02,/* m */
+	width_halfscreen : 0.005,/* m */
+	ratio : 16,
+	periodic : 0,
+
+	range_phase : [0.0, 0.8*%pi],/* maximum available phase shift for red light */
+	IDXRANGE_MAX : 2,
+	IDXRANGE_MIN : 1,
+
+	number_pixels : ceiling ( size_image / size_pixel ),
+	numberHalf_pixels : truncate ( number_pixels / 2 ),
+	numPix_oddeven : number_pixels / 2,
+	numPix_oddeven : ceiling(numPix_oddeven) - floor(numPix_oddeven),
+
+	getPhaseShift ( width, idx_pixel ) := block
+	(
+		local             \
+		(                 \
+			opticalPath,    \
+			pathWaves,      \
+			pathDifference, \
+			shiftCenter,    \
+			localsteps, localstep, localphase, localdiff \
+		),
+
+		shiftCenter : numPix_oddeven * size_pixel / 2,
+		if ( idx_pixel <= 0 )
+		then
+			shiftCenter : (-1) * shiftCenter,
+
+		opticalPath : sqrt ( ( width - (idx_pixel * size_pixel + shiftCenter) )^2 + length2screen^2 ),
+		pathWaves : opticalPath / wavelength,
+		pathDifference : pathWaves - truncate ( pathWaves ),
+
+		if ( periodic = 0 )
+		then block
+		(
+			localsteps : fullratsimp( (idx_pixel + numberHalf_pixels)/ratio ),
+			localsteps : fullratsimp(truncate (localsteps))
+		)
+		else
+			localsteps : idx_pixel + numberHalf_pixels,
+		localstep : fullratsimp( (number_pixels - 1)/ratio ),
+		localdiff : range_phase[IDXRANGE_MAX] - range_phase[IDXRANGE_MIN],
+		localphase : ( localsteps ) * (localdiff) / (localstep),
+		if ( localdiff > 0.0 )
+		then block
+		(
+			localphase : localphase / localdiff,
+			localphase : localdiff * fullratsimp ( localphase - truncate ( localphase ) )
+		),
+		return ( [2 * %pi * pathDifference + localphase, opticalPath] )
+	),
+
+	getPhaseDifference ( x, i1, i2 ) := block
+	(
+		local (r1, r2),
+		r1 : getPhaseShift ( x, i1 ),
+		r2 : getPhaseShift ( x, i2 ),
+		return ( sin(r1[1]) / (r1[2] / length2screen) + sin(r2[1]) / (r2[2] / length2screen) )
+	),
+
+	array ( intensities, number_pixels - 1 ),
+
+	for idx : 0 while idx < number_pixels do block
+	(
+		idx_argLeft : fullratsimp ( idx - numberHalf_pixels ),
+		idx_argRight : fullratsimp ( idx - numberHalf_pixels + 1 ),
+		intensities[idx] : lambda ( [x], getPhaseDifference ( x, idx_argLeft, idx_argRight ) / (2 * number_pixels) )
+	),
+
+	plot2d ( (sum(intensities[i](x), i, 0, number_pixels - 1))^2 / 2, [x, -width_halfscreen, width_halfscreen], [title, printf ( false, "Дифракция на расстоянии ~,1h см вдоль экрана шириной ~,1h мм без сдвига Размер пятна - ~,1h мм", length2screen * 100, width_halfscreen * 2000, size_image * 1000 )] ),
+	/*
+	plot2d ( makelist ( intensities[i](x), i, 0, number_pixels - 1 ), [x, -width_halfscreen, width_halfscreen], [title, caption[1]] ),
+	*/
+	/*
+	for ii : 0 while ii < number_pixels do print ( intensities[ii](y) ),
+  */
+	print ( number_pixels ),
+
+	return ( done )
+)$

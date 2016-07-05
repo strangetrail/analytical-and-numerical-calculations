@@ -1,0 +1,114 @@
+/*
+# vi:syntax=maxima
+*/
+/* eigenvectors_3x3_3roots.max */
+/*****************************************************************************/
+  f_matrix_eival : genmatrix ( Poly, 3, 3 ),
+  eivallist : makelist ( 0, 3 ),
+  eigenvec_bevelbasis : make_array ( fixnum, 3, 3 ),
+  f_content : makelist( makelist ( chi2[i,j], j, 1, 3 ) , i, 1, 3 ),
+  f_matrix : apply (matrix, f_content),
+  /*print ( f_matrix ),*/
+  eivalnpowerlist : eivals ( f_matrix ),
+  eigenvec_list : eigenvectors ( f_matrix ),
+  /*printf ( true, "~%~%Custom evaluation of eigenvectors begins~%~%" ),*/
+  for idx_0 : 1 while idx_0 <= (length ( eivalnpowerlist[1] )) do block
+  (
+    for idx_1 : 1 while idx_1 <= eivalnpowerlist[2][idx_0] do block
+    (
+      eivallist[idx_0 + idx_1 - 1] : eivalnpowerlist[1][idx_0]
+    )
+  ),
+  /*printf ( true, "~%~%Eigenvalues:~%~%" ),*/
+  /*eivallist : eivalnpowerlist[1],*/
+  /*print ( length ( eivallist ) ),*/
+  /*print ( eivallist ),*/
+  /*printf ( true, "~%~%" ),*/
+  idx_eival : 1,
+  for singleeival in eivallist do block
+  (
+    /*
+    printf ( true, "~%~%Eigenvalue~%~%" ),
+    print ( singleeival ),
+    printf ( true, "~%~%" ),
+    */
+    delta_minor_nonzero : 0,
+    idx_delta_minor_nonzero : 0,
+    /*
+    printf ( true, "~%~%Using eigen value :   " ),
+    print ( singleeival ),
+    printf ( true, "~%~%" ),
+    */
+    for idx_0 : 1 while idx_0 <= 3 do
+      for idx_1 : 1 while idx_1 <= 3 do
+        f_matrix_eival[idx_0, idx_1] : f_matrix[idx_0, idx_1],
+    for idx_0 : 1 while idx_0 <= 3 do
+      f_matrix_eival[idx_0, idx_0] : f_matrix[idx_0, idx_0] - singleeival,
+    /*
+    printf ( true, "~%~%Diagonal elements at start of evaluation:~%~%" ),
+    printf ( true, "~a~%~%",  (f_matrix_eival[3, 3]) ),
+    printf ( true, "~a~%~%",  (f_matrix_eival[2, 2]) ),
+    printf ( true, "~a~%~%",  (f_matrix_eival[1, 1]) ),
+    printf ( true, "~%~%" ),
+    */
+    skip_eival_search : false,
+    for idx_0 : 1 while idx_0 <= 3 do block
+    (
+      if ( not skip_eival_search )
+      then block
+      (
+        /*printf ( true, "~%~%Searching for nonzero value.~%~%" ),*/
+        delta_minor_nonzero: determinant(minor ( f_matrix_eival, idx_0, idx_0 )),
+        /*print ( delta_minor[idx_0, idx_0] ),*/
+        /*printf ( true, "~%~%~%~%" ),*/
+        if ( delta_minor_nonzero # 0 )
+        then block
+        (
+          idx_delta_minor_nonzero : idx_0,
+          /*
+          printf ( true, "~%~%Found nonzero minor. Exiting~%~%" ),
+          printf ( true, "~%~%Nonzero index is  " ),
+          print ( idx_delta_minor_nonzero ),
+          printf ( true, "~%~%" ),
+          */
+          skip_eival_search:true
+        )
+      )
+     ),
+     if ( idx_delta_minor_nonzero # 0 )
+     then block
+     (
+       /*
+       printf ( true, "~%~%Using nonzero index  " ),
+       print ( idx_delta_minor_nonzero ),
+       printf ( true, "~%~%" ),
+       printf ( true, "~%~%Diagonal elements:~%~%" ),
+       printf ( true, "~a~%~%",  (f_matrix_eival[3, 3]) ),
+       printf ( true, "~a~%~%",  (f_matrix_eival[2, 2]) ),
+       printf ( true, "~a~%~%",  (f_matrix_eival[1, 1]) ),
+       printf ( true, "~%~%" ),
+       printf ( true, "~%~%Original diagonal elements:~%~%" ),
+       printf ( true, "~a~%~%",  (f_matrix[3, 3]) ),
+       printf ( true, "~a~%~%",  (f_matrix[2, 2]) ),
+       printf ( true, "~a~%~%",  (f_matrix[1, 1]) ),
+       */
+       D_deltas : sqrt ( sum ( determinant(minor(f_matrix_eival, idx_delta_minor_nonzero, idx_0)), idx_0, 1, 3 ) ),
+       for idx_0 : 1 thru 3 step 1 do block
+       (
+         /*
+         printf ( true, "~%~%idx_0~%~%" ),
+         print ( idx_0 ),
+         printf ( true, "~%~%" ),
+         printf ( true, "~%~%idx_eival~%~%" ),
+         print ( idx_eival ),
+         printf ( true, "~%~%" ),
+         */
+         det_tmp : determinant(minor ( f_matrix_eival, idx_delta_minor_nonzero, idx_0 )),
+         /*printf ( true, "~%~%Determinant evaluation done.~%~%" ),*/
+         eigenvec_bevelbasis[idx_eival - 1, idx_0 - 1] : det_tmp/*,*/
+         /*printf ( true, "~%~%eigenvec component evaluation done..~%~%" )*/
+       )
+     ),
+     idx_eival : idx_eival + 1
+    ),
+/*****************************************************************************/

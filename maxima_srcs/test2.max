@@ -1,0 +1,42 @@
+/*
+# vi:syntax=maxima
+*/
+batch ( "common/utils.max" );
+mainr () := block
+(
+  displ : 12.0,
+  /* z : ( 218.0/2.0 ), */
+  z : ( 269.0/2.0 ),
+  /* x : 36.0/2.0, */
+  x : 15.0/2.0,
+  h_glass : 0.7,
+  h_LC : 0.735,/* mean value from CONFIRMED data */
+  n_air : 1.000293,
+  n_glass : 1.5090,
+  n_LC : 1.5411,
+  angle_glass : asin ( sin ( atan ( x/z ) ) * n_air/n_glass ),
+  x_glass : tan ( angle_glass ) * h_glass,
+  angle_LC : asin ( sin ( %pi/2.0 - angle_glass ) * n_glass/n_LC ),
+  x_LC : tan ( angle_LC ) * h_LC,
+  total_displ : 2.0 * (x_LC + x_glass),
+  printf ( true, "~e", total_displ ),
+  newline (),
+  printf ( true, "~e", angle_glass * 180 / %pi ),
+  stream : openw ( "test_2.maxima.tex" ),
+  printf ( stream, "\\documentclass{article}~%\\usepackage{amsmath}~%\\usepackage{mathtools}~%\\begin{document}~%" ),
+  /*gf_tex : tex ( ev(total_displ), false ),
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_tex ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),*/
+  [theomega : %omega001, thebeta : %beta001],
+  texput ( %beta001, "\\beta" ),
+  texput ( %omega001, "\\omega" ),
+  gf_tex : tex ( thebeta[c] + theomega[1], false ),
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_tex ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  printf ( stream, "\\end{document}" ),
+  close ( stream ),
+  return (done)
+);
+mainr()$

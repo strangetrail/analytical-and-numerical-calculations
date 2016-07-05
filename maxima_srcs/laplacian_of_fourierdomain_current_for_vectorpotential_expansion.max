@@ -1,0 +1,52 @@
+/*
+# vi:syntax=maxima
+*/
+mainr() := block
+(
+  SAGElike_full_simplification ( expr2simplify ) := block
+  (
+    /* 1. Factorials */
+    simplified_res : minfactorial ( expr2simplify ),
+    /* 2. Trigonometry */
+    simplified_res : trigsimp ( simplified_res ),
+    /* 3. Rational parts */
+    simplified_res : ratsimp ( simplified_res ),
+    simplified_res : fullratsimp ( simplified_res ),
+    simplified_res : xthru ( simplified_res ),
+    /* 4. Logarithms */
+    simplified_res : logcontract ( simplified_res ),
+    /* Something else is expected here */
+    /* 5. Rational parts */
+    simplified_res : ratsimp ( simplified_res ),
+    simplified_res : fullratsimp ( simplified_res ),
+    simplified_res : xthru ( simplified_res ),
+    return ( simplified_res )
+  ),
+  /*
+  dx : x-x1,
+  dy : y-y1,
+  dz : z-z1,
+  */
+  /*r : sqrt ( dx^2 + dy^2 + dz^2 ),*//* From Lienard-Wichert vector potential integrated over (time*c)=path_from_source_to_point */
+  r : sqrt ( x^2 + y^2 + z^2 ),/* After expansion of above Lienard-Wichert distance (r) into Taylor series */
+  u : exp ( %i * k * r ) / r,
+  t : 1 - (1/(%i * k * r)),
+  f : u * t,
+  g : f * ( x * x1 / r + y * y1 / r + z * z1 / r),
+  Ay : g * y1,
+  Ax : g * x1,
+  /*genform : diff ( diff ( u, x1 ), x1 ) + diff ( diff ( u, y1 ), y1 ) + diff ( diff ( u, z1 ), z1 ),*/
+  /*genform : ( diff ( u, x1 ) ) + ( diff ( u, y1 ) ) + ( diff ( u, z1 ) ),*/
+  genform : diff ( Ay, x ) - diff ( Ax, y ),
+  stream : openw ( "laplacian.maxima.tex" ),
+  printf ( stream, "\\documentclass{article}~%\\usepackage{amsmath}~%\\usepackage{mathtools}~%\\begin{document}~%" ),
+  gf_presimpl : SAGElike_full_simplification( genform ),
+  gf_simpl : SAGElike_full_simplification( gf_presimpl ),
+  gf_tex : tex ( gf_simpl, false ),
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_tex ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  printf ( stream, "\\end{document}" ),
+  close ( stream ),
+  return (done)
+)$

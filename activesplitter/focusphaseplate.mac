@@ -1,0 +1,40 @@
+mainr () := block
+(
+  R : (768 / 2) * 9.0e-6,
+  dx : 0.25e-3,
+  f0 : 115.0e-3,
+
+  l1 : R,
+  l2 : R/3,
+  h : 1.0e-2,
+  dz : 0.5e-3,
+  /*dz : 4 * (dx)^2 / 633.0e-9,*/
+
+  print ( dz ),
+  print ( sqrt ( dz * 633.0e-9 / 4) ),
+
+  /*f0 : h/(l1-l2) - dz,*/
+  solution : solve ( (%pi / 633.0e-9) * R^2 / ( f0 + dz ) + %pi / 2 = (%pi / 633.0e-9) * r^2 / ( f0 + dz * r^2 / R^2 ) , r),
+  print (fullratsimp(solution)),
+
+  r1 : R - 9.0e-6 / 2,
+
+  phy1 : (%pi / 633.0e-9) * r1^2 / ( f0 + dz * r1^2 / R^2 ),
+
+  print ( phy1 ),
+
+  r2 : R - ( 9.0e-6 / 2 + 9.0e-6 ),
+
+  phy2 : (%pi / 633.0e-9) * r2^2 / ( f0 + dz * r2^2 / R^2 ),
+
+  print ( phy2 ),
+
+  print ( phy1 - phy2 ),
+
+  print (f0),
+
+  print (R),
+
+  return (done)
+);
+mainr();

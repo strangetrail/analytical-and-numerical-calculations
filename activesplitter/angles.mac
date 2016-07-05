@@ -1,0 +1,70 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* angles.mac */
+
+mainr () := block
+(
+
+  d_0 : 6.97,/* smartlink diameter */
+  n_nematic : 1.7302,/* He-Ne E7  0.6328 um */
+  n_glass : 1.5050,/*  He-Ne 0.6328 um*/
+  alpha_incidence : 23,/* for example, (0-90) range */
+  n_air : 1.000293,
+  h_glass : 0.7e-3,/* meters *//* cover glass depth */
+  h_LC : 0.735e-3,/* meters */
+  pixel_size : 9.0e-6,/* meters */
+  WG_inout : 6.975e-3,/* meters */
+
+  displ : 12.0,
+  /* z : ( 218.0/2.0 ), */
+  z : ( 269.0 / 2.0 ),
+  /* x : 36.0/2.0, */
+  x : 15.0 / 2.0,
+
+  angle_glass : asin ( sin ( ( 90 - alpha_incidence ) * %pi / 180 ) * n_air/n_glass ),
+  x_glass : tan ( angle_glass ) * h_glass,
+  angle_LC : asin ( sin ( angle_glass ) * n_glass/n_nematic ),
+  x_LC : tan ( angle_LC ) * h_LC,
+  x_LCglass : x_glass + x_LC,
+  inout_height : ,
+
+  gridn_mirror : floor ( x_LCglass / pixel_size ),
+  gridn_LC : floor ( x_LC / pixel_size ),
+  gridn_delta : gridn_mirror - gridn_LC,
+
+  gridm_delta : floor ( h_LC / pixel_size ),
+
+  grid_length : gridn_delta + gridm_delta,
+
+  grid_line : makelist ( 0, gridn_length ),
+
+  /*
+  gamma_total : 0,
+  count_j : 0, / * number of already passed horizontal lines * /
+  displ_firstline : pixel_size * ceiling ( x_glass / pixel_size ) - x_glass,
+  for idx_i : 0 thru gridn_delta do block
+  (
+    
+    if ( ( displ_firstline + idx_i * pixel_size ) / tan ( angle_LC ) > count_j * pixel_size )
+    then block
+    (
+      ,
+      for idx_j : 0 thru grid_length do
+        gamma_total : 
+      count_j : count_j + 
+    )
+  ),
+  */
+
+  total_displ : 2.0 * ( x_LC + x_glass ),
+  printf ( true, "~e", total_displ ),
+  newline (),
+  printf ( true, "~e", angle_glass * 180 / %pi ),
+
+
+  return ( done )
+
+);
+mainr();

@@ -1,0 +1,4 @@
+/*
+# vi:syntax=maxima
+*/
+batchload ( "./redirect2maxima.max" )$

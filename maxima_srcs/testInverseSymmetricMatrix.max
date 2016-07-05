@@ -1,0 +1,37 @@
+/*
+# vi:syntax=maxima
+*/
+mainr() := block
+(
+  SAGElike_full_simplification ( expr2simplify ) := block
+  (
+    /* 1. Factorials */
+    simplified_res : minfactorial ( expr2simplify ),
+    /* 2. Trigonometry */
+    simplified_res : trigsimp ( simplified_res ),
+    /* 3. Rational parts */
+    simplified_res : ratsimp ( simplified_res ),
+    simplified_res : fullratsimp ( simplified_res ),
+    simplified_res : xthru ( simplified_res ),
+    /* 4. Logarithms */
+    simplified_res : logcontract ( simplified_res ),
+    /* Something else is expected here */
+    /* 5. Rational parts */
+    simplified_res : ratsimp ( simplified_res ),
+    simplified_res : fullratsimp ( simplified_res ),
+    simplified_res : xthru ( simplified_res ),
+    return ( simplified_res )
+  ),
+  load ( "eigen" ),
+  M_test : matrix ( [ xx - v, xy, xz ], [ yx, yy - v, yz ], [ zx, zy, zz -v  ] ),
+  M_test_inv : invert ( M_test ),
+  print (SAGElike_full_simplification(determinant (M_test))),
+  stream : openw ( "test_inverse_symmetric_matrix.maxima.tex" ),
+  printf ( stream, "\\documentclass{article}~%\\usepackage{amsmath}~%\\usepackage{mathtools}~%\\begin{document}~%" ),
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, tex ( M_test_inv, false ) ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  printf ( stream, "\\end{document}" ),
+  close ( stream ),
+  return (done)
+)$

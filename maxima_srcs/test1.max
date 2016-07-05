@@ -1,0 +1,143 @@
+/*
+# vi:syntax=maxima
+*/
+mainr() := block
+(
+  SAGElike_full_simplification ( expr2simplify ) := block
+  (
+    /* 1. Factorials */
+    simplified_res : minfactorial ( expr2simplify ),
+    /* 2. Trigonometry */
+    simplified_res : trigsimp ( simplified_res ),
+    /* 3. Rational parts */
+    simplified_res : ratsimp ( simplified_res ),
+    simplified_res : fullratsimp ( simplified_res ),
+    simplified_res : xthru ( simplified_res ),
+    /* 4. Logarithms */
+    simplified_res : logcontract ( simplified_res ),
+    /* Something else is expected here */
+    /* 5. Rational parts */
+    simplified_res : ratsimp ( simplified_res ),
+    simplified_res : fullratsimp ( simplified_res ),
+    simplified_res : xthru ( simplified_res ),
+    return ( simplified_res )
+  ),
+  load ( "eigen" ),
+  Hvect : columnvector ( [, Hy, Hz] ),
+  nabla_vars : columnvector ( [ x, y, z ] ),
+  det2x2 ( pdiffs, vars ) := block
+  (
+    return ( diff ( vars[2][1], pdiffs[1][1] ) - diff ( vars[1][1], pdiffs[2][1] ) )
+  ),
+  det2x2 ( vars, pdiffs ) := block
+  (
+    return ( vars[2][1] * pdiffs[1][1] - vars[1][1] * pdiffs[2][1] )
+  ),
+  cross_prod_M ( M, V ) := block
+  (
+    Mret : zeromatrix ( 3, 3 ),
+    for idx : 1 thru 3 step 1 do block
+    (
+      for jdx : 1 thru 3 step 1 do block
+      (
+        v1set : submatrix ( jdx, row ( M, idx ) ),
+        v2set : submatrix ( jdx, V ),
+        Mret[idx][jdx] : ( (-1)^(jdx+1) ) * det2x2 ( v1set, v2set )
+      )
+    ),
+    return ( Mret )
+  ),
+  curl_xyz ( M2 ) := block
+  (
+    M2ret : zeromatrix ( 3, 3 ),
+    for idx : 1 thru 3 step 1 do
+      for jdx : 1 thru 3 step 1 do block
+      (
+        var_set : submatrix ( jdx, nabla_vars ),
+        sprint ( var_set ),
+        newline(),
+        pdiff_set : submatrix ( jdx, col ( M2, idx ) ),
+        sprint ( pdiff_set ),
+        newline(),
+        M2ret[jdx][idx] : (-1)^(jdx+1) * det2x2 ( var_set, pdiff_set )
+      ),
+    return ( M2ret )
+  ),
+  dot_prod_M_V ( M, V ) := block
+  (
+    Vret : zeromatrix ( 3, 1 ),
+    for idx : 1 thru 3 step 1 do
+      Vret[idx][1] : innerproduct ( row ( M, idx ), V ),
+    return ( Vret )
+  ),
+  M_matrix : matrix ( [m11 ( x, y, z ), m12 ( x, y, z ), m13 ( x, y, z )], [m21 ( x, y, z ), m22 ( x, y, z ), m23 ( x, y, z )], [m31 ( x, y, z ), m32 ( x, y, z ), m33 ( x, y, z )] ),
+  curl_from_3x3_cartes_tens_of_2nd_ord : dot_prod_M_V ( ( curl_xyz ( M_matrix ) ), Hvect ),
+  sprint ( curl_from_3x3_cartes_tens_of_2nd_ord ),
+  newline (),
+  temp_cross_prod : dot_prod_M_V( ( transpose ( cross_prod_M ( transpose ( M_matrix ), nabla_vars ) ) ), Hvect ),
+  /* funmake ( matrix, ( makelist ( ( makelist( 0, 2 ) ), 2 ) ) ), */
+  nabla_matrix ( M, n, m ) := block
+  (
+    /*list_rows : makelist ( 0, n ),*/
+    Mret : zeromatrix ( n, m ),
+    for idx:1 thru n step 1 do block
+    (
+      /* list_rows[idx] : makelist ( 0, m ), */
+      for jdx:1 thru m step 1 do
+        Mret[idx][jdx] : diff ( M[idx][jdx], nabla_vars[idx][1] )
+    ),
+    /* Mret : funmake ( matrix, ( list_rows ) ), */
+    return ( Mret )
+  ),
+  n_matrix : matrix ( [n11(x,y,z), n12(x,y,z), 0], [n21(x,y,z), n22(x,y,z), 0], [0, 0, n33(x,y,z)] ),
+  /* sprint ( n_matrix ), */
+  n2_matrix : n_matrix.n_matrix,
+  /* sprint ( n2_matrix ), */
+  ninv_matrix : invert ( n2_matrix ),
+  /* sprint ( ninv_matrix ), */
+  A_matrix : ninv_matrix.(nabla_matrix(n2_matrix, 3, 3)),
+  /* sprint ( A_matrix ),*/
+  B_matrix : n2_matrix.(nabla_matrix(ninv_matrix, 3, 3)),
+  /* sprint ( B_matrix ), */
+  genform1 : A_matrix,
+  genform2 : B_matrix,
+  /*
+  gf_simpl : SAGElike_full_simplification( genform ),
+  gf_simpl2 : SAGElike_full_simplification( gf_simpl ),
+  */
+  stream : openw ( "test1.maxima.tex" ),
+  printf ( stream, "\\documentclass{article}~%\\usepackage{amsmath}~%\\usepackage{mathtools}~%\\begin{document}~%" ),
+  /* gf_tex : tex ( sin (a[x]), false ), */
+  gf1_tex : zeromatrix ( 3, 3 ),
+  gf2_tex : zeromatrix ( 3, 3 ),
+  for idx:1 thru 3 step 1 do
+    for jdx:1 thru 3 step 1 do block
+    (
+      gf_simpl : SAGElike_full_simplification( genform1[idx][jdx] + genform2[idx][jdx] ),
+      /*gf_simpl2 : SAGElike_full_simplification( genform1[idx][jdx] - genform2[idx][jdx] ),*/
+      gf_tex : tex ( gf_simpl, false ),
+      /* gf2_tex[idx][jdx] : tex ( gf2_simpl2[idx][jdx], false ), */
+      printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+      printf ( stream, gf_tex ),
+      printf ( stream, "\\end{split}~%\\end{equation}~%" )
+      /*
+      printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+      printf ( stream, gf2_tex[idx][jdx] ),
+      printf ( stream, "\\end{split}~%\\end{equation}~%" )
+      */
+    ),
+  for idx : 1 thru 3 step 1 do
+    for jdx : 1 thru 3 step 1 do block
+    (
+      printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+      printf ( stream, tex ( curl_from_3x3_cartes_tens_of_2nd_ord[idx][jdx] - temp_cross_prod[idx][jdx], false ) ),
+      printf ( stream, "\\end{split}~%\\end{equation}~%" )
+    ),
+  /*
+  gf1_tex : tex ( gf1_simpl2, false ),
+  gf2_tex : tex ( gf2_simpl2, false ),
+  */
+  printf ( stream, "\\end{document}" ),
+  close ( stream ),
+  return (done)
+)$

@@ -1,0 +1,4 @@
+#!/bin/bash
+#
+LD_LIBRARY_PATH=./fffc$LD_LIBRARY_PATH USER_GDB_DEBUG_THROW_EXPLICIT=0 gdb -x ./_gdbcommands --tui $1
+#

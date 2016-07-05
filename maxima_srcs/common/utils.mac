@@ -1,0 +1,365 @@
+/*
+# vi:syntax=maxima
+*/
+
+/***************************************************************************/
+/*                                SIMPLIFY                                 */
+/***************************************************************************/
+
+/*****************************************************************************/
+
+/*SAGElikeFullSimplify ( expr2simplify ) := block
+(
+  return ( xthru(fullratsimp(ratsimp(logcontract(xthru(fullratsimp(ratsimp(trigsimp(minfactorial(expr2simplify))))))))))
+),*/
+
+/*****************************************************************************/
+
+Sum ( someidx ) := block
+(
+  return ( thisisasum )
+);
+
+Product ( someidx ) := block
+(
+  return ( thisisaproduct )
+);
+
+factormapcond ( expression2analyse ) := block
+(
+  /* BGN DEBUG */
+  DEBUGPRINT ( "Inside factormapcond" ),
+  /* END DEBUG */
+  whatisthisexpr : reveal( expression2analyse, 1 ),
+  whatisthis : ev ( whatisthisexpr ),
+  if ( (whatisthis = thisisasum) or (whatisthis = thisisaproduct) or (whatisthis = Negterm) )
+  then
+    block
+    (
+      if ( whatisthis = thisisasum )
+      then block
+      (
+        /* BGN DEBUG */
+        DEBUGPRINT ( "fullratsimp begins" ),
+        /* END DEBUG */
+        expression2reveal : fullratsimp ( expression2analyse ),
+        /* BGN DEBUG */
+        DEBUGPRINT ( "fullratsimp done" )
+        /* END DEBUG */
+      )
+      else
+        expression2reveal : expression2analyse,
+      return ( map ( factormapcond, expression2reveal ) )
+    )
+  else block
+  (
+    /* BGN DEBUG */
+    DEBUGPRINT ( "fullratsimp begins" ),
+    /* END DEBUG */
+    return ( factorsum(expression2analyse) ),
+    /* BGN DEBUG */
+    DEBUGPRINT ( "fullratsimp done" )
+    /* END DEBUG */
+  )
+);
+
+SAGElikeLiteSimplify ( expr_ARG ) := block
+(
+  return ( xthru ( fullratsimp ( ratsimp ( trigsimp ( \
+   expr_ARG ) ) ) ) )                                  
+);
+
+SAGElikeFullSimplify ( expr2simplify ) := block
+(
+
+  /* BGN DEBUG */
+  DEBUGPRINT ( "INSIDE SAGELIKEFULLSIMPLIFY" ),
+  /* END DEBUG */
+
+  simp : true,
+  ratsimpexpons : true,
+  logsimp : true,
+  factorflag : false,
+  simpsum : true,
+  facexpand : false,
+  algebraic : true,
+
+  bApplyCustomFactorisation : true,/* DEFAULT TRUE */
+
+  simplified_res : expr2simplify,
+
+  if (bDebugPrint) then printf ( true, "~%~%~a~%~%", simplified_res ),
+  if (bApplyCustomFactorisation) then simplified_res : expand ( simplified_res ),/*DEFAULT ON*/
+  if (bDebugPrint) then printf ( true, "~%~%expand DONE.~%~%" ),
+  /*
+  simplified_res : factor ( simplified_res ),
+  printf ( true, "~%~%factor initial DONE.~%~%" ),
+  simplified_res : factorsum ( simplified_res ),
+  printf ( true, "~%~%factorsum initial DONE.~%~%" ),
+  */
+
+  /*
+  simplified_res : map(trigexpand , simplified_res ),
+  simplified_res : ev (simplified_res),
+  */
+
+  /* 0. By parts */
+
+  /*
+  simplified_res : map (minfactorial , simplified_res ),
+  */
+
+  /*
+  simplified_res : ev (simplified_res),
+  simplified_res : map(rectform ,simplified_res),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(trigrat ,simplified_res),
+  simplified_res : ev (simplified_res),
+  simplified_res : map (trigreduce ,simplified_res),
+  simplified_res : ev (simplified_res),
+  */
+
+  /*
+  simplified_res : map(trigsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  */
+
+  /*
+  simplified_res : map (radcan ,simplified_res),
+  simplified_res : ev (simplified_res),
+
+  simplified_res : map(ratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(fullratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(xthru , simplified_res ),
+  simplified_res : ev (simplified_res),
+
+  simplified_res : map (logcontract , simplified_res ),
+  simplified_res : ev (simplified_res),
+
+  simplified_res : map (ratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map (fullratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(xthru , simplified_res ),
+  simplified_res : ev (simplified_res),
+  */
+
+  /* 1. Factorials */
+
+  if (bApplyCustomFactorisation) then simplified_res : minfactorial ( simplified_res ),/*DEFAULT ON*/
+  /*printf ( true, "~%~%minfactorial DONE.~%~%" ),*/
+
+  /* 2. Trigonometry */
+
+  /*
+  simplified_res : rectform (simplified_res),
+  */
+  /*
+  simplified_res : trigrat (simplified_res),
+  printf ( true, "~%~%trigrat DONE.~%~%" ),
+  */
+  /*
+  simplified_res : trigreduce (simplified_res),
+  printf ( true, "~%~%trigreduce DONE.~%~%" ),
+  */
+
+  if (bApplyCustomFactorisation) then simplified_res : trigsimp ( simplified_res ),/*DEFAULT ON*/
+  /*printf ( true, "~%~%trigsimp DONE.~%~%" ),*/
+
+  /* 3. Rational parts */
+
+  /*
+  simplified_res : map(ratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(fullratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(xthru , simplified_res ),
+  simplified_res : ev (simplified_res),
+  */
+
+  /*
+  simplified_res : radcan (simplified_res),
+  printf ( true, "~%~%radcan DONE.~%~%" ),
+  */
+
+  /*
+  simplified_res : rat ( simplified_res ),
+  printf ( true, "~%~%rat DONE.~%~%" ),
+  */
+  simplified_res : ratsimp ( simplified_res ),/*DEFAULT ON*/
+  if (bDebugPrint) then printf ( true, "~%~%ratsimp DONE.~%~%" ),
+  simplified_res : fullratsimp ( simplified_res ),/*DEFAULT ON*/
+  if (bDebugPrint) then printf ( true, "~%~%fullratsimp DONE.~%~%" ),
+  simplified_res : xthru ( simplified_res ),/*DEFAULT ON*/
+  if (bDebugPrint) then printf ( true, "~%~%xthru DONE.~%~%" ),
+
+  /* 4. Logarithms */
+
+  if (bApplyCustomFactorisation) then simplified_res : logcontract ( simplified_res ),/*DEFAULT ON*/
+  /*printf ( true, "~%~%logcontract DONE.~%~%" ),*/
+
+  /* Something else is expected here */
+
+  /*
+  simplified_res : rootscontract ( simplified_res ),
+  printf ( true, "~%~%rootscontract DONE.~%~%" ),
+  */
+
+  /*
+  simplified_res : factor ( simplified_res ),
+  */
+
+  /* 5. Rational parts again */
+
+  /*
+  simplified_res : map(ratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(fullratsimp , simplified_res ),
+  simplified_res : ev (simplified_res),
+  simplified_res : map(xthru , simplified_res ),
+  simplified_res : ev (simplified_res),
+  */
+
+  /*
+  simplified_res : rat ( simplified_res ),
+  printf ( true, "~%~%rat DONE.~%~%" ),
+  */
+  /*simplified_res : ratsimp ( simplified_res ),*/
+  /*printf ( true, "~%~%ratsimp DONE.~%~%" ),*/
+  /*simplified_res : fullratsimp ( simplified_res ),*/
+  /*printf ( true, "~%~%fullratsimp DONE.~%~%" ),*/
+  /*simplified_res : xthru ( simplified_res ),*/
+  /*printf ( true, "~%~%xthru DONE.~%~%" ),*/
+
+  /*
+  simplified_res : radcan (simplified_res),
+  printf ( true, "~%~%radcan DONE.~%~%" ),
+  */
+
+  /*
+  simplified_res : factor ( simplified_res ),
+  */
+  if ( bApplyCustomFactorisation )
+  then block
+  (
+    simplified_res_numer : ratnumer ( simplified_res ),
+    /*printf ( true, "~%~%ratnumer DONE.~%~%" ),*/
+    simplified_res_denom : ratdenom ( simplified_res ),
+    /*printf ( true, "~%~%ratdenom DONE.~%~%" ),*/
+    if ( not ( mapatom ( simplified_res_numer ) ) )
+    then
+      block
+      (
+        simplified_res_numer : map ( factorsum, simplified_res_numer ),
+        /*printf ( true, "~%~%factorsum numer DONE.~%~%" ),*/
+        simplified_res_numer : map ( factormapcond, simplified_res_numer )
+      ),
+    if ( not ( mapatom ( simplified_res_denom ) ) )
+    then
+      block
+      (
+        simplified_res_denom : map ( factorsum, simplified_res_denom ),
+        /*printf ( true, "~%~%factorsum denom DONE.~%~%" ),*/
+        simplified_res_denom : map ( factormapcond, simplified_res_denom )
+      )
+  ),
+
+  /*printf ( true, "~%~%simplify DONE.~%~%" ),*/
+  if ( bApplyCustomFactorisation )
+  then
+    return ( simplified_res_numer / simplified_res_denom )
+  else
+    return ( simplified_res )
+
+);
+
+/***************************************************************************/
+/*^^^^^                           SIMPLIFY                            ^^^^^*/
+/***************************************************************************/
+
+if ( bDebugPrint )
+then
+  strDebugPrint : "[DEBUG PRINT]";
+
+DEBUGRND ( DEBUGVAR_ARG ) := block
+(
+  if ( bDebugPrint )
+  then
+    return ( random ( 1.0 ) )
+  else
+    return ( DEBUGVAR_ARG )
+);
+
+DEBUGPRINT ( strDebugMessage ) := block
+(
+  if ( bDebugPrint )
+  then
+    printf ( true, "~%~%~a  ~a.~%~%", strDebugPrint, strDebugMessage )
+);
+
+DEBUGPRINT1 ( strDebugMessage, Variable2Watch ) := block
+(
+  if ( bDebugPrint )
+  then
+    printf (                                                            \
+     true, "~%~%~a  ~a:~%~%~a  ~a~%~%", strDebugPrint, strDebugMessage, \
+     strDebugPrint, Variable2Watch                                      \
+    )                                                                    
+);
+
+DEBUGPRINT2 ( strDebugMessage, Variable2Watch ) := block
+(
+  if ( bDebugPrint )
+  then block
+  (
+    printf (                                                            \
+     true, "~%~%~a  ~a:~%~%~a~%~%    ", strDebugPrint, strDebugMessage, \
+     strDebugPrint                                                      \
+    ),                                                                   
+    print ( Variable2Watch ),
+    printf ( true, "~%~%" )
+  )
+);
+
+printTexDocBGN ( stream_ARG ) := block
+(
+  printf ( stream_ARG, "~a~%~a~%~a~%~a~%", \
+           "\\documentclass{article}",     \
+           "\\usepackage{amsmath}",        \
+           "\\usepackage{mathtools}",      \
+           "\\begin{document}"             \
+         ),                                 
+
+  return ( done )
+);
+
+printTexDocEND ( stream_ARG ) := block
+(
+  printf ( stream_ARG, "\\end{document}" ),
+
+  return ( done )
+);
+
+printTexDocTEXT ( stream_ARG, text_ARG ) := block
+(
+  printf ( ostream_ARG, "~a~a~a~%~a~%~a~%", \
+           "\\text{", text_ARG, "}",        \
+           "\\newline", "\\newline"         \
+         ),                                  
+
+  return ( done )
+);
+
+printTexExpressionInline ( stream, expr ) := block
+(
+  local ( expr_tex ),
+
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  expr_tex : tex ( expr, false ),
+  printf ( stream, ssubst ( "", "$$", expr_tex ) ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+
+  return ( done )
+)$

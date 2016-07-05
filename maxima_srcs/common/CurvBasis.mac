@@ -1,0 +1,310 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* CurvBasis.mac */
+
+/*****************************************************************************/
+
+thetas : makelist ( eval_string ( printf ( false, "theta_~d", idx0 ) ), \
+                    idx0, 1, 3                                          \
+                  );                                                     
+
+for idx_0 : 1 thru 3 do block
+(
+  strEnumbered : printf ( false, "theta_~d", idx_0 ),
+  strEnumberedTex : printf ( false, "{{\\theta}_{~d}}", idx_0 ),
+  texput ( eval_string ( strEnumbered ), strEnumberedTex ),
+  eval_string ( printf ( false, "depends ( h~d, thetas )", idx_0 ) )
+);
+
+g_covar : matrix ( [h1^2,    0,    0], \
+                   [   0, h2^2,    0], \
+                   [   0,    0, h3^2]  \
+                 );                     
+
+g_covar1 : matrix ( [1, 0, 0], \
+                    [0, 1, 0], \
+                    [0, 0, 1]  \
+                  );            
+
+g_contravar : matrix ( [1 / h1^2,        0,        0], \
+                       [       0, 1 / h2^2,        0], \
+                       [       0,        0, 1 / h3^2]  \
+                     );                                 
+
+g_contravar1 : g_covar;
+
+g_metric : (h1 * h2 * h3);
+g_metric1 : 1;
+
+/*****************************************************************************/
+
+/* Lurie */
+Chris_2nd_curv ( r_con, s_cov, t_cov ) := block
+(
+  local ( q ),
+
+  return ( sum ( g_contravar[r_con, q]                           \
+                 * ( diff ( g_covar[s_cov, q], thetas[t_cov] )   \
+                     + diff ( g_covar[t_cov, q], thetas[s_cov] ) \
+                     - diff ( g_covar[s_cov, t_cov], thetas[q] ) \
+                   ) / 2,                                        \
+                 q, 1, 3                                         \
+               )                                                 \
+         )                                                        
+);
+
+/*****************************************************************************/
+
+/* Lurie */
+Chris_2nd_curv1 ( r_con, s_cov, t_cov ) := block
+(
+  local ( q ),
+
+  return ( sum ( g_contravar1[r_con, q]                           \
+                 * ( diff ( g_covar1[s_cov, q], thetas[t_cov] )   \
+                     + diff ( g_covar1[t_cov, q], thetas[s_cov] ) \
+                     - diff ( g_covar1[s_cov, t_cov], thetas[q] ) \
+                   ) / 2,                                        \
+                 q, 1, 3                                         \
+               )                                                 \
+         )                                                        
+);
+
+/*****************************************************************************/
+
+/* Lurie */
+div_curv ( V ) := block
+(
+  local ( ksum, rsum ),
+
+  return ( sum ( diff ( V[ksum], thetas[ksum] )              \
+                 + sum ( Chris_2nd_curv ( ksum, ksum, rsum ) \
+                         * V[rsum],                          \
+                         rsum, 1, 3                          \
+                       ),                                    \
+                 ksum, 1, 3                                  \
+               )                                             \
+         )                                                    
+);
+
+/*****************************************************************************/
+
+/* Lurie */
+curl_curv ( V ) := block
+(
+  local ( idx_l, ssum, ksum, msum ),
+
+  return                                                                   \
+  (                                                                        \
+   makelist                                                                \
+   (                                                                       \
+    sum ( sum ( levi_civita ( [ssum, ksum, idx_l] ) / g_metric             \
+                * ( diff ( V[ksum], thetas[ssum] )                         \
+                    - sum ( Chris_2nd_curv ( msum, ssum, ksum ) * V[msum], \
+                            msum, 1, 3                                     \
+                          )                                                \
+                  ),                                                       \
+                ksum, 1, 3                                                 \
+              ),                                                           \
+          ssum, 1, 3                                                       \
+        ),                                                                 \
+    idx_l, 1, 3                                                            \
+   )                                                                       \
+  )                                                                         
+);
+
+/*****************************************************************************/
+
+/* Lurie */
+curl_curv1 ( V ) := block
+(
+  local ( l, ssum, ksum, msum ),
+
+  return                                                                   \
+  (                                                                        \
+   makelist                                                                \
+   (                                                                       \
+    sum ( sum ( levi_civita ( [ssum, ksum, l] ) / g_metric1                \
+                * ( diff ( V[ksum], thetas[ssum] )                         \
+                    - sum ( Chris_2nd_curv1 ( msum, ssum, ksum ) * V[msum], \
+                            msum, 1, 3                                     \
+                          )                                                \
+                  ),                                                       \
+                ksum, 1, 3                                                 \
+              ),                                                           \
+          ssum, 1, 3                                                       \
+        ),                                                                 \
+    l, 1, 3                                                                \
+   )                                                                       \
+  )                                                                         
+);
+
+/*****************************************************************************/
+
+/* Lurie */
+grad_curv ( S_ARG ) := block
+(
+  local ( idx_s, grad_RES ),
+
+  grad_RES : makelist ( g_contravar[idx_s, idx_s]        \
+                        * diff ( S_ARG, thetas[idx_s] ), \
+                        idx_s, 1, 3                      \
+                      ),                                  
+
+  return ( grad_RES )
+);
+
+/*****************************************************************************/
+
+/* Lurie */
+grad_curv1 ( S_ARG ) := block
+(
+  local ( idx_s, grad_RES ),
+
+  grad_RES : makelist ( g_contravar1[idx_s, idx_s]       \
+                        * diff ( S_ARG, thetas[idx_s] ), \
+                        idx_s, 1, 3                      \
+                      ),                                  
+
+  return ( grad_RES )
+);
+
+/*****************************************************************************/
+
+graddiv_cartcurv ( V_ARG ) := block
+(
+  local ( graddiv_RES ),
+
+  graddiv_RES : grad_curv1 ( div_curv ( V_ARG ) ),
+
+  return ( graddiv_RES )
+);
+
+/*****************************************************************************/
+
+curlcurl_cartcurv ( V_ARG ) := block
+(
+  local ( idx0, V_cov, curlCurv, curl_cov, curlcurlCartCurv_RES ),
+
+  V_cov : makelist ( g_covar[idx0, idx0] * V_ARG[idx0], idx0, 1, 3 ),
+  curlCurv : curl_curv ( V_cov ),
+  curl_cov : makelist ( g_covar[idx0, idx0] * curlCurv[idx0], idx0, 1, 3 ),
+  curlcurlCartCurv_RES : curl_curv1 ( curl_cov ),
+
+  return ( curlcurlCartCurv_RES )
+);
+
+/*****************************************************************************/
+
+laplvect_cartcurv ( V_ARG ) := block
+(
+  local ( idx0, graddivV, curlcurlV, laplvect_RES ),
+
+  graddivV : graddiv_cartcurv ( V_ARG ),
+  curlcurlV : curlcurl_cartcurv ( V_ARG ),
+  laplvect_RES : makelist ( graddivV[idx0]     \
+                            - curlcurlV[idx0], \
+                            idx0, 1, 3         \
+                          ),                    
+
+  return ( laplvect_RES )
+);
+
+/*****************************************************************************/
+
+lapl_curv ( V_ARG ) := block
+(
+  local ( idx0, V_cov, curlV, curlcurlV, divV, graddivV, lapl_RES ),
+
+  V_cov : makelist ( g_covar[idx0, idx0] * V_ARG[idx0], idx0, 1, 3 ),
+  curlV : curl_curv ( V_cov ),
+  curlV_cov : makelist ( g_covar[idx0, idx0] * curlV[idx0], idx0, 1, 3 ),
+  curlcurlV : curl_curv ( curlV_cov ),
+  divV : div_curv ( V_ARG ),
+  graddivV : grad_curv ( divV ),
+  lapl_RES : makelist ( graddivV[idx0] - curlcurlV[idx0], idx0, 1, 3 ),
+
+  return ( lapl_RES )
+);
+
+/*****************************************************************************/
+
+curlM_dot_V ( M, V ) := block
+(
+  local ( idx_s, idx_k, idx_n, idx_l ),
+
+  return ( makelist ( sum ( sum ( sum ( levi_civita ( [idx_s, idx_k, idx_l] ) / g_metric \
+                                        * V[idx_n]                            \
+                                        * g_covar[idx_n, idx_n]               \
+                                        * diff ( M[idx_k, idx_n]              \
+                                                 * g_covar[idx_k, idx_k],             \
+                                                 thetas[idx_s]                \
+                                               ),                             \
+                                        idx_n, 1, 3                           \
+                                      ),                                      \
+                                  idx_k, 1, 3                                 \
+                                ),                                            \
+                            idx_s, 1, 3                                       \
+                          ),                                                  \
+                      idx_l, 1, 3                                             \
+                    )                                                         \
+         )                                                                     
+);
+
+/*****************************************************************************/
+
+McrossNABLA_dot_V ( M, V ) := block
+(
+  local ( idx_i, idx_j, idx_k, idx_m, idx_t ),
+
+  return                                                                   \
+  (                                                                        \
+   makelist                                                                \
+   (                                                                       \
+    sum ( sum ( sum ( ( levi_civita ( [idx_j, idx_m, idx_i] ) / g_metric   \
+                        * g_covar[idx_j, idx_j] * M[idx_j, idx_k]          \
+                        * ( diff ( V[idx_k] * g_covar[idx_k, idx_k],       \
+                                   thetas[idx_m]                           \
+                                 )                                         \
+                            - 0 * sum ( Chris_2nd_curv ( idx_t, idx_m, idx_k ) \
+                                    * g_covar[idx_t, idx_t] * V[idx_t],    \
+                                    idx_t, 1, 3                            \
+                                  )                                        \
+                          )                                                \
+                      ),                                                   \
+                      idx_k, 1, 3                                          \
+                    ),                                                     \
+                idx_m, 1, 3                                                \
+              ),                                                           \
+          idx_j, 1, 3                                                      \
+        ),                                                                 \
+    idx_i, 1, 3                                                            \
+   )                                                                       \
+  )                                                                         
+);
+
+/*****************************************************************************/
+
+curl_MV ( M, V ) := block
+(
+  local ( idx_j, idx_s, idx_k, idx_l ),
+
+  return ( makelist ( sum ( sum ( sum ( levi_civita ( [idx_s, idx_k, idx_l] ) / g_metric  \
+                                        * diff ( M[idx_k, idx_j] * V[idx_j]  \
+                                                 * g_covar[idx_j, idx_j]   \
+                                                     * g_covar[idx_k, idx_k] \
+                                                   ,                      \
+                                                 thetas[idx_s]               \
+                                               ),                            \
+                                        idx_j, 1, 3                          \
+                                      ),                                     \
+                                  idx_k, 1, 3                                \
+                                ),                                           \
+                            idx_s, 1, 3                                      \
+                          ),                                                 \
+                      idx_l, 1, 3                                            \
+                    )                                                        \
+         )                                                                    
+)$

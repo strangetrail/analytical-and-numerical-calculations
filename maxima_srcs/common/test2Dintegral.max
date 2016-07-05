@@ -1,0 +1,15 @@
+mintegrate(integrand,variables,llimits,ulimits,method,opts):=%mintegrate(apply('lambda,[[first(variables)],integrand]),variables,llimits,ulimits,method,opts)$
+
+%mintegrate(integrand,variables,llimits,ulimits,method,opts):=if length(variables) = 1 then funmake(method,append([integrand,first(variables),first(llimits),first(ulimits)],opts)) else %mintegrate(apply('lambda,[[second(variables)],funmake(method,append([integrand,first(variables),first(llimits),first(ulimits)],opts))]),rest(variables),rest(llimits),rest(ulimits),method,opts)$
+
+mdefint(integrand,variables,llimits,ulimits):=subst(lambda= lambda([u,v],v),mintegrate(integrand,variables,llimits,ulimits,'integrate,[]))$
+
+mdefint(x*y*z,[x,y,z],[0,1,2],[y,z,3]);
+out7 : ''%;
+display2d:false$
+
+out7,numer;
+%quad_qags(e,t,a,b,[opts]) := first(apply(quad_qags,append([e,t,a,b],opts)))$
+mintegrate(x*y*z,[x,y,z],[0,1,2],[y,z,3],%quad_qags,[epsrel=1e-5]);
+''%;
+printf (true,"done")$

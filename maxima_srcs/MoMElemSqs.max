@@ -1,0 +1,81 @@
+/*
+# vi:syntax=maxima
+*/
+the_main_routine() := block
+(
+
+
+
+  /***************************************************************************/
+  /*                                SIMPLIFY                                 */
+  /***************************************************************************/
+
+  SAGElike_full_simplification ( expr2simplify ) := block
+  (
+
+    /* 1. Factorials */
+
+    simplified_res : minfactorial ( expr2simplify ),
+
+    /* 2. Trigonometry */
+
+    simplified_res : trigsimp ( simplified_res ),
+
+    /* 3. Rational parts */
+
+    simplified_res : ratsimp ( simplified_res ),
+
+    simplified_res : fullratsimp ( simplified_res ),
+
+    simplified_res : xthru ( simplified_res ),
+
+    /* 4. Logarithms */
+
+    simplified_res : logcontract ( simplified_res ),
+
+    /* Something else is expected here */
+
+    /* 5. Rational parts */
+
+    simplified_res : ratsimp ( simplified_res ),
+
+    simplified_res : fullratsimp ( simplified_res ),
+
+    simplified_res : xthru ( simplified_res ),
+
+    return ( simplified_res )
+
+  ),
+
+  /***************************************************************************/
+  /*^^^^^                           SIMPLIFY                            ^^^^^*/
+  /***************************************************************************/
+
+
+
+
+
+  first_int : integrate ( x^2 / ( sqrt ( x^2 + y^2 + z^2 ) )^3, x ),
+  first_int_modified : log ( 2 * ( sqrt ( x^2 + y^2 + z^2 ) + x ) ),
+  stream : openw ( "MoMElemSqs.maxima.tex" ),
+  printf ( stream, "\\documentclass{article}~%\\usepackage{amsmath}~%\\usepackage{mathtools}~%\\begin{document}~%" ),
+  first_int_tex : tex ( first_int, false ),
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, first_int_tex ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /* tex ( first_int, stream ), */
+  second_int : integrate ( first_int_modified, y ),
+  second_int_tex : tex ( second_int, false ),
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, second_int_tex ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  first_diff : diff ( x * log ( 2 * ( sqrt ( x^2 + y^2 + z^2 ) + y ) ) + y * log ( 2 * ( sqrt ( x^2 + y^2 + z^2 ) + x ) ) - z * atanh ( x * y / ( z * sqrt ( x^2 + y^2 + z^2 ) ) ) + z * atanh ( x / z ) - x, x ),
+  first_diff_simplified : SAGElike_full_simplification ( first_diff ),
+  first_diff_tex : tex ( first_diff_simplified, false ),
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, first_diff_tex ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  printf ( stream, "\\end{document}" ),
+  close ( stream ),
+  return ( done )
+)$

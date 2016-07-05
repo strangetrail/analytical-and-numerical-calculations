@@ -1,0 +1,46 @@
+/*
+# vi:syntax=maxima
+*/
+setcheck : [ BREAKMEHERE ];
+setcheckbreak : true;
+mainr() := block
+(
+  x1foo(arg_c,arg_b,arg_db1) := block
+  (
+    res__x1 : 0.5*arg_c + arg_b + arg_db1,
+    return ( res__x1 )
+  ),
+  a : 28 - 14 + 7.5 + 5 + (28 - 14) - 2.5,
+  b : 20,
+  c : (150 - 2*65) * 1.1,
+  d : (12 + 27 + 92 ) - 2.5 - 2.5 - 5 \
+      - 5 - 28 + 14 - 7.5,             
+  da1 : 14 - 7.5 - 2.5 - 2.5,
+  da2 : da1 + 5,
+
+
+
+
+
+  db1 : 14 - 2.5 + 2.5 + 2.5 + 7,
+  db2 : db1 - 5,
+  /*
+  x1 : 0.5*c + b + db1,
+  */
+  x1 : x1foo(c,b, db1),
+  x2 : 0.5*c + db2,
+  y1 : d - da1,
+  y2 : d + a - da2,
+  Bx : (150/2 - 65),
+  By : 12 + 27 + 92,
+  dx1 : -Bx + x1,
+  dx2 : -Bx + x2,
+  BREAKMEHERE : random ( 1.0 ),
+  dy1 : By - y1,
+  dy2 : By - y2,
+  print(dx1),
+  print(dx2),
+  print(dy1),
+  print(dy2),
+  return (done)
+)$

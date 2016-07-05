@@ -1,0 +1,294 @@
+/*
+# vi:syntax=maxima
+*/
+batch ( "maxima_srcs/common/utils.max" );
+mainr() := block
+(
+  /* VOLTAGES */
+  voltage : (26+31+63+165),
+  v_TB : 5.0,/* voltage on transistor base */
+  /* RESISTANCES */
+  R1 : 2.0e4,/* voltage divider component */
+  R2 : 0.0,/* voltage divider component */
+  R3 : 0.0,/* voltage divider component */
+  R4 : 0.0,/* voltage divider component */
+  R_T1a : 2.2e6,/* resistance in series with transistor-capacitor circuit */
+  R_T2 : 2.0e4,/* resistor parallel to transistor-capacitor circuit AND R_T1a  
+                  (it's the main load resistor for all four capacitors)      */
+  R_T3 : 4700,/* resistor in series with capacitor AND parallel to transistor  
+                 within transistor-capacitor circuit                         */
+  R_B0 : 1000,/* transistor base circuit resistance */
+  R_T1 : R_T1a + R_T3,/* total resistance in series with capacitor (C-E        
+                         junction closed)                                    */
+  R_T : 1 / ( 1/R_T2 + 4/R_T1 ),/* total resistance of all capacitor circuits  
+                                   with transistor C-E junction closed       */
+  /* CURRENT RATIO COEFFICIENTS */
+  I_T1_c : ( R_T2 / ((R_T1/4) + R_T2) )/4,/* ratio coefficients for currents in
+                                             each capacitor circuit when C-E is
+                                             closed                          */
+  I_T2_c : ( (R_T1/4) / ((R_T1/4) + R_T2) ),/* ratio coefficients for currents 
+                                               in each capacitor circuit when  
+                                               C-E is closed                 */
+  ratio_coef : 0.5,/* voltage divider ratio */
+  V_total : 150,/* total volts on each capacitor circuit if there is an exact  
+                   150V voltage source                                       */
+  C_actuator : 3.0e-6,/* piezoactuator capacitance ( C ) */
+  R1s_transistor : R_T1a,
+  desired_T_period : 1/1000,
+  tau_caps : desired_T_period / ( log ( 2/3 ) - log ( 1 - (1/3) - 0.05 ) ),
+  R2p_transistor : tau_caps / ( C_actuator ) - R1s_transistor,/* same as R_c or R_T3 */
+  sprint ( "R2p_transistor ( or R_c; or R_T3 ) for desired period T of 1/1000 second, KOhms: " ),
+  printf ( true, "~e", R2p_transistor / 1000), newline(),
+  desired_R2p_transistor : R_T3,/* same as R_c or R_T3 */
+  tau_RC : C_actuator * (desired_R2p_transistor + R1s_transistor),
+  T_period : tau_RC * ( log ( 2/3 ) - log ( 1 - (1/3) - 0.05 ) ),
+  sprint("T_period for desired R2p_transistor ( or R_c, or R_T3 ): "),
+  printf(true,"~e",T_period), newline(),
+  sprint("5 * tau_RC for desired R2p_transistor ( or R_c, or R_T3 ): "),
+  printf(true,"~e",5 * tau_RC), newline(),
+  sprint("nu, frequency"),
+  printf(true,"~e",1/T_period), newline(),
+  /* Discharge curcuit with diode parasitic reverse-voltage capacitance */
+  /*C_diode : 3.0e-12,*/
+  /*C_diode : 2.0e-12,*/
+  /*C_diode : 1.2e-12,*//* BAV21 diode parasitic capacitance upper bound */
+  C_diode : 1.0e-12,
+  /*C_diode : 0.9e-12,*//* BAV21 diode parasitic capacitance lower bound */
+  /*C_diode : 0.5e-12,*/
+  C_1 : 12.0e-12,/* 1N4936GP diode parasitic capacitance */
+  sq_roots : solve ( s^2 + (b/a)*s + (c/a), s ),
+  x1 : rhs(sq_roots[1]),
+  x2 : rhs(sq_roots[2]),
+  eq1 : A + e*B + e*C + e*D = 0,
+  eq2 : -A*(x1+x2) + (1-x2*e)*B + (1-x1*e)*C + D*(1+e*(b/a)) = -1,
+  eq3 : A*x1*x2 - x2*B - x1*C + D*(e*(c+b)/a) = x1+x2+d,
+  eq4 : D*(c/a) = -x1*x2,
+  ABCD : linsolve ( [eq1, eq2, eq3, eq4], [A, B, C, D] ),
+  A_const : rhs(ABCD[1]),
+  B_const : rhs(ABCD[2]),
+  C_const : rhs(ABCD[3]),
+  D_const : rhs(ABCD[4]),
+  stream : openw ( "currents.maxima.tex" ),
+  printf ( stream, "\\documentclass{article}~%\\usepackage{amsmath}~%\\usepackage{mathtools}~%\\begin{document}~%" ),
+  R_C : desired_R2p_transistor,
+  a : C_diode * C_actuator * R_aux * R_C,/* only with BAV21 capacitance 1*) */
+  /*a : C_diode * C_actuator * R_aux * R_C * C_1,*//* with both BAV21 and      
+                                                      1N4936GP capacitance     
+                                                      2*)                    */
+  /*a : C_D * C_A * R_A * R_C,*//* only symbolic values for solving equations  
+                                   analytically 3*)                          */
+  b : C_actuator * ( R_aux + R_C ) + C_diode * R_aux,/* 1*) */
+  /*b : C_actuator * C_1 * ( R_aux + R_C ) + C_diode * R_aux * ( C_1 + 2 * C_actuator ),*//* 2*) */
+  /*b : C_A * ( R_A + R_C ) + C_D * R_A,*//* 3*) */
+  c : 1,/* 1*); 3*) */
+  /*c : C_1 + 2 * C_actuator,*//* 2*) */
+  d : R_aux * C_actuator / a,/* 1*) */
+  /*d : R_aux * C_actuator * C_1 / a,*//* 2*) */
+  /*d : R_A * C_A / a,*//* 3*) */
+  e : R_C * C_actuator,/* 1*) */
+  /*e : R_C * C_actuator / ( 1 + 2 * C_actuator / C_1 ),*//* 2*) */
+  /*e : R_C * C_A,*//* 3*) */
+  /*
+  R_aux_roots : solve ( (b/a)^2 - 4 * (c/a), R_A ),
+  R_aux1 : rhs(R_aux_roots[1]),
+  R_aux2 : rhs(R_aux_roots[2]),
+  */
+  /*
+  gf_tex1 : tex ( SAGElikeFullSimplify(ev(x1)), false ),
+  gf_tex2 : tex ( SAGElikeFullSimplify(ev(x2)), false ),
+  b_pow2 : tex ( SAGElikeFullSimplify( (b/a)^2 ), false ),
+  gf_texA : tex ( SAGElikeFullSimplify(ev(A_const)), false ),
+  gf_texB : tex ( SAGElikeFullSimplify(ev(B_const)), false ),
+  gf_texC : tex ( SAGElikeFullSimplify(ev(C_const)), false ),
+  gf_texD : tex ( SAGElikeFullSimplify(ev(D_const)), false ),
+  */
+  /*
+  gf_tex_Raux1 : tex ( SAGElikeFullSimplify(R_aux1), false ),
+  gf_tex_Raux2 : tex ( SAGElikeFullSimplify(R_aux2), false ),
+  */
+  /*
+  BC_min : false,
+  x1x2_min : false,
+  Raux_min : false,
+  R_aux : 1.0e0,
+  while R_aux > 0.0e0 do block (
+    a : ev(a),
+    b : ev(b),
+    d : ev(e),
+    x1x2_diff : abs ( ev(x1) / ev(x2) ),
+    BC_diff : abs ( ev(B_const) / ev(C_const) ),
+    if ((BC_min = false) or ( BC_min > BC_diff ))
+    then block (
+      BC_min : BC_diff,
+      Raux_min : R_aux
+      ),
+    if ((x1x2_min = false) or ( x1x2_min > x1x2_diff ))
+    then block (
+      x1x2_min : x1x2_diff,
+      Raux_min : R_aux
+      ),
+    R_aux : R_aux - 1.0e-3,
+    sprint ( R_aux ),
+    sprint ( BC_min ),
+    sprint ( x1x2_min ),
+    sprint ( BC_diff ),
+    sprint ( x1x2_diff ),
+    sprint ( Raux_min ),
+    newline ()
+  ),
+  sprint ( Raux_min ),
+  newline (),
+  */
+  x1_ev : ( (ev(x1)) ),
+  x2_ev : ( (ev(x2)) ),
+  bpo2_ev :  ( ( (b/a)^2 ) ),
+  A_ev :  ( (ev(A_const)) ),
+  B_ev :  ( (ev(B_const)) ),
+  C_ev :  ( (ev(C_const)) ),
+  D_ev :  ( (ev(D_const)) ),
+  /*
+  Raux1_ev :  ( ev(R_aux1) ),
+  Raux2_ev :  ( ev(R_aux2) ),
+  */
+  gf_tex1 : tex ( (ev(x1)), false ),
+  gf_tex2 : tex ( (ev(x2)), false ),
+  b_pow2 : tex ( ( (b/a)^2 ), false ),
+  gf_texA : tex ( (ev(A_const)), false ),
+  gf_texB : tex ( (ev(B_const)), false ),
+  gf_texC : tex ( (ev(C_const)), false ),
+  gf_texD : tex ( (ev(D_const)), false ),
+  /*
+  gf_tex_Raux1 : tex ( ev(R_aux1), false ),
+  gf_tex_Raux2 : tex ( ev(R_aux2), false ),
+  */
+  /*
+  gf_tex1 : tex ( printf(false, "~e", (ev(x1))), false ),
+  gf_tex2 : tex ( printf( false, "~e", (ev(x2)) ), false ),
+  b_pow2 : tex ( printf( false, "~e", ( (b/a)^2 ) ), false ),
+  gf_texA : tex ( printf( false, "~e", (ev(A_const)) ), false ),
+  gf_texB : tex ( printf( false, "~e", (ev(B_const)) ), false ),
+  gf_texC : tex ( printf( false, "~e", (ev(C_const)) ), false ),
+  gf_texD : tex ( printf( false, "~e", (ev(D_const)) ), false ),
+  */
+  /*
+  gf_tex_Raux1 : tex ( printf( false, "~e", (R_aux1), false ),
+  gf_tex_Raux2 : tex ( printf( false, "~e", (R_aux2) ), false ),
+  */
+  /*printf ( stream, "\\text{gf_tex1:}~%" ),*/
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_tex1 ),
+  sprint("x1"),
+  printf(true,"~s",x1), newline(),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*printf ( stream, "\\text{gf_tex2:}~%" ),*/
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_tex2 ),
+  sprint("x2"),
+  printf(true,"~s",x2), newline(),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*
+  printf ( stream, "\\text{b_pow2:}~%" ),
+  printf ( stream, "\\newline~%" ),
+  */
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, b_pow2 ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*printf ( stream, "\\text{gf_texA:}~%" ),*/
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_texA ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*printf ( stream, "\\text{gf_texB:}~%" ),*/
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_texB ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*printf ( stream, "\\text{gf_texC:}~%" ),*/
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_texC ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*printf ( stream, "\\text{gf_texD:}~%" ),*/
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_texD ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*printf ( stream, "\\text{gf_tex_Raux1:}~%" ),*/
+  /*
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_tex_Raux1 ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  */
+  /*printf ( stream, "\\text{gf_tex_Raux2:}~%" ),*/
+  /*
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, gf_tex_Raux2 ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  */
+  time_const : 5 * ( C_actuator * ( R1s_transistor + R_C ) ),
+  sprint(A_ev),
+  sprint(B_ev),
+  sprint(C_ev),
+  sprint(D_ev),
+  sprint(x1_ev),
+  sprint(x2_ev),
+  /*eq2solve : (-1)*(ev( (A_ev/e) * exp ( (-time_const)/e ) + B_ev * exp ( time_const*x1_ev ) + C_ev * exp ( time_const*x2_ev ) + D_ev )) / ( 1 + 2 * C_actuator / C_1 ),*//* 2*) */
+  eq2solve : (-1)*(ev( (A_ev/e) * exp ( (-time_const)/e ) + B_ev * exp ( time_const*x1_ev ) + C_ev * exp ( time_const*x2_ev ) + D_ev )),/* 1*) */
+  /*printf ( stream, "\\text{eq2solve:}~%" ),*/
+  printf ( stream, "\\begin{equation}~%\\begin{split}~%" ),
+  printf ( stream, tex(eq2solve, false) ),
+  printf ( stream, "\\end{split}~%\\end{equation}~%" ),
+  /*find_root ( eq2solve, R_aux, 0.1, 1 ),*/
+  /*roots_R_aux : solve (eq2solve, R_aux),*/
+  printf ( stream, "\\end{document}" ),
+  close ( stream ),
+  R_aux : 2.2e6,
+  newline (),
+  sprint("Capacitor voltage value in percents: "),
+  printf ( true, "~e", ev ( eq2solve ) ),
+  newline(),
+  /*
+  sprint("V_C(R_aux)  :  "),
+  sprint(ev(eq2solve)), newline(),
+  */
+  R_supply2battery_diodes: R1+R2+R3+R4 + ( (R_T1a + R_T3) / 4 ),/* with 1N4936GP */
+  R_supply2battery_nodiodes: R1+R2+R3+R4+R_T,/* without 1N4936GP */
+  R_total : R1+R2+R3+R4+R_T,
+  current_total : (voltage / R_total),
+  power_max : current_total^2 * R1/2,/* R1 must be nonzero */
+  power_TCE : ( current_total * I_T1_c )^2 * R_T1a/2,/* C-E closed */
+  current_TCE : current_total * I_T1_c,
+  power_mainload : ( current_total * I_T2_c )^2 * R_T2/2,
+  current_mainload : current_total * I_T2_c,
+  current_CE_CEopened : voltage / ( R1+R2+R3+R4 + R_T1a/4 ),
+  power_CE: (current_CE_CEopened/4)^2 * R_T1a/2,
+  current_BE_small: v_TB / R_B0,
+  power_BE_small: current_BE_small^2 * R_B0 / 2,
+  power_ext_load_CEopened : current_CE_CEopened^2 * R1/2,
+  sprint("R_total"),
+  printf(true,"~e",R_total/1000),
+    newline(),
+  sprint("current_total"),
+  printf(true,"~e",current_total),
+    newline(),
+  sprint("power_max"),
+  printf(true,"~e",power_max),
+    newline(),
+  sprint("power_TCE"),
+  printf(true,"~e",power_TCE),
+    newline(),
+  sprint("current_TCE"),
+  printf(true,"~e",current_TCE),
+    newline(),
+  sprint("power_mainload"),
+  printf(true,"~e",power_mainload), newline(),
+  sprint("current_mainload"),
+  printf(true,"~e",current_mainload), newline(),
+  sprint("current_CE_CEopened"),
+  printf(true,"~e",current_CE_CEopened), newline(),
+  sprint("power_CE"),
+  printf(true,"~e",power_CE), newline(),
+  sprint("current_BE_small"),
+  printf(true,"~e",current_BE_small), newline(),
+  sprint("power_BE_small"),
+  printf(true,"~e",power_BE_small), newline(),
+  sprint("power_ext_load_CEopened"),
+  printf(true,"~e",power_ext_load_CEopened), newline(),
+  return (done)
+)$

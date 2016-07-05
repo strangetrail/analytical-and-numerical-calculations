@@ -1,0 +1,1657 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* BevelBasisInducedSuscTensor.mac */
+
+/*****************************************************************************/
+/* Debug settings: */
+
+bDebugPrint   :  true;
+bCheckBreak   : false;
+setcheckbreak : false;
+
+setcheck      : [];
+
+strDebugPrint : "DEBUG";
+
+/*****************************************************************************/
+
+/* Settings: */
+bDoNotInvert                        : false;
+bSymbolicChi2                       : false;
+bSimplify                           : false;
+bEvaluateAmbigEivecs4MultipleEivals :  true;
+iSwitchEivec : 1;/* iSwitchEivec - selector for unambigious eivec (0) or one\*/
+/*                  of two ambigious eivecs (1),(2). IF                     \*/
+/*                  bEvaluateAmbigEivecs4MultipleEivals = true.             \*/
+/*                  iSwitchEivec - index of an eigenvalue (1)-(3) otherwise.\*/
+/*                  See for ref. Lurie "Theory of elasticity" Appendix I.    */
+
+/* Constants: */
+iIdxEigens         : 1;
+iIdxMultiplicities : 2;
+iIdxRoot1          : 1;
+iIdxRoot2          : 2;
+idxRoot            : iIdxRoot1;
+/* Global constants: */
+
+/*****************************************************************************/
+
+batchload ( "./common/utils.mac" );
+
+/*****************************************************************************/
+
+mainr() := block
+(
+
+  tens2matr ( T_ARG ) := block
+  (
+    local ( M_RES, L_t ),
+
+    DEBUGPRINT ( "Inside tens2matr" ),
+
+    L_t : makelist ( makelist ( T_ARG[i,j], j, 1, 3 ), i, 1, 3 ),
+    M_RES : apply ( matrix, L_t ),
+
+    return ( M_RES )
+  ),
+
+  tensor3DArray2List ( tensorArray_ARG ) := block
+  (
+    local ( assign_LIST ),
+
+    DEBUGPRINT ( "Inside tens2matr" ),
+
+    assign_LIST : makelist ( makelist ( makelist (            \
+     tensorArray_ARG[i,j,k], k, 1, 3 ), j, 1, 3 ), i, 1, 3 ),  
+    return ( assign_LIST )
+  ),
+
+  listArray2matrix ( listArray_ARG ) := block
+  (
+    local ( assign_MATRIX ),
+
+    DEBUGPRINT ( "Inside listArray2matrix" ),
+
+    /*
+    assign_LIST :                                                      \
+     makelist ( makelist ( listArray_ARG[i][j], j, 1, 3 ) , i, 1, 3 ),  
+    assign_MATRIX : apply ( matrix, assign_LIST ),
+    */
+    assign_MATRIX : apply ( matrix, listArray_ARG ),
+    return ( assign_MATRIX )
+  ),
+
+/*****************************************************************************/
+
+  printTexBGN2File ( helper_ARG ) := block
+  (
+    local ( ostream_RES ),
+    ostream_RES : openw ( printf (                                        \
+                    false, "BevelBasisInducedSuscTensor___~a.maxima.tex", \
+                    helper_ARG                                            \
+                   )                                                      \
+                  ),                                                       
+    printf (                          \
+     ostream_RES, "~a~%~a~%~a~%~a~%", \
+     "\\documentclass{article}",      \
+     "\\usepackage{amsmath}",         \
+     "\\usepackage{mathtools}",       \
+     "\\begin{document}"              \
+    ),                                 
+    printf ( ostream_RES, "\\text{~a}~%\\newline~%\\newline~%", helper_ARG ),
+    return ( ostream_RES )
+  ),
+
+/*****************************************************************************/
+
+  printTexEND2File ( ostream_ARG ) := block
+  (
+    printf ( ostream_ARG, "\\end{document}" ),
+    close ( ostream_ARG ),
+    return ( done )
+  ),
+
+/*****************************************************************************/
+
+  printVector2File_SUB ( ostream_ARG, vect_ARG, idxaux_ARG, bSimplify_ARG, Name1_ARG, Name2_ARG ) := block
+  (
+    local ( idx_0, simplifiedExpr ),
+    for idx_0 : 1 thru 3 do block
+    (
+
+      DEBUGPRINT ( "Printing another matrix term" ),
+
+      printf                                          \
+      (                                               \
+       ostream_ARG, "~a~%~a~%~a~%",                   \
+       printf                                         \
+       (                                              \
+        false, "\\text{[~d;~d] (~s = ~d ; ~s = ~d) :}", \
+        idxaux_ARG, idx_0, Name1_ARG, idxaux_ARG, Name2_ARG, idx_0          \
+       ),                                             \
+       "\\begin{equation}", "\\begin{split}"          \
+      ),                                               
+
+      DEBUGPRINT ( "Simplifying expression for output" ),
+      DEBUGPRINT1 ( "The expression is", vect_ARG ),
+      DEBUGSTOP5 : DEBUGRND ( DEBUGSTOP5 ),
+      DEBUGPRINT1 ( "The expression is", vect_ARG[idx_0] ),
+
+      if ( bSimplify_ARG )
+      then
+        simplifiedExpr : SAGElikeLiteSimplify ( vect_ARG[idx_0] )
+      else
+        simplifiedExpr : SAGElikeFullSimplify ( vect_ARG[idx_0] ),
+
+      if ( bDebugPrint )
+      then block
+      (
+        /*
+        printf ( true, "~%~%~a  Simplified expression code :", strDebugPrint ),
+        */
+        printf                                \
+        (                                     \
+         true, "~%~%~a  (~s;~s) = (~d;~d)~%~%", \
+         strDebugPrint, Name1_ARG, Name2_ARG, idxaux_ARG, idx_0     \
+        )                                      
+        /*
+        printf ( true, "~%~%~a  Simplified expression :~%~%~a", \
+         strDebugPrint, strDebugPrint ),                         
+        */
+        /*print ( simplifiedExpr )*/
+      ),
+
+      printf ( ostream_ARG, tex ( simplifiedExpr, false ) ),
+      printf ( ostream_ARG, "~a~%~a~%", "\\end{split}", "\\end{equation}" )
+    ),
+    return ( done )
+  ),
+
+  printVector2File ( ostream_ARG, vect_ARG, idxaux_ARG, bSimplify_ARG ) := block
+  (
+    return ( printVector2File_SUB ( ostream_ARG, vect_ARG, idxaux_ARG, bSimplify_ARG, "i", "j" ) )
+  ),
+
+/*****************************************************************************/
+
+  printMatrix2File ( matrix_ARG, helper, bSimplify_ARG ) := block
+  (
+    __printMatrix2File ( matrix_ARG, helper, bSimplify_ARG, false, "i", "j" ),
+    return ( done )
+  ),
+
+  __printMatrix2File ( matrix_ARG, helper, bSimplify_ARG, bDoNotConvert, Name1_ARG, Name2_ARG ) := block
+  (
+    local ( stream_output, matrix_ARG, matrixRow, idx_0 ),
+    stream_output : printTexBGN2File ( helper ),
+
+    if ( not bDoNotConvert )
+    then
+      matrix_ARG : tens2matr ( matrix_ARG ),
+    for idx_0 : 1 thru 3 do block
+    (
+      matrixRow : row ( matrix_ARG, idx_0 ),
+      printVector2File_SUB ( stream_output, matrixRow[1], idx_0, bSimplify_ARG, Name1_ARG, Name2_ARG )
+    ),
+
+    printTexEND2File ( stream_output ),
+
+    DEBUGPRINT ( "Done printing matrix" ),
+
+    return ( done )
+  ),
+
+  print2D3x3Array2File ( listArray_ARG, helper, bSimplify_ARG ) := block
+  (
+    local ( matrix_ARG ),
+
+    DEBUGPRINT ( "Inside print2D3x3Array2File" ),
+
+    matrix_ARG : listArray2matrix ( listArray_ARG ),
+    __printMatrix2File ( matrix_ARG, helper, bSimplify_ARG, true, "i", "j" ),
+
+    return ( done )
+  ),
+
+/*****************************************************************************/
+
+  /*
+    Wrapper for tens2matr
+  */
+
+  itens2matr ( T_ARG ) := block
+  (
+
+    DEBUGPRINT ( "Inside itens2matr" ),
+
+    return ( tens2matr ( T_ARG ) )
+  ),
+
+/*****************************************************************************/
+
+  getMatrWithEivals ( matrix_ARG, eival_ARG ) := block
+  (
+    local ( M_lambda_RES, idx_0 ),
+
+    DEBUGPRINT ( "Inside getMatrWithEivals" ),
+
+    M_lambda_RES : copymatrix ( matrix_ARG ),
+    for idx_0 : 1 thru 3 do
+      M_lambda_RES[idx_0,idx_0] : matrix_ARG[idx_0,idx_0] - eival_ARG,
+
+    return ( M_lambda_RES )
+  ),
+
+/*****************************************************************************/
+
+  getEiVec4Cofactor ( matrix_ARG, cofactor_ARG, idx_ARG, eival_ARG ) := block
+  (
+    local ( eivec, Tensor4Cofactor, idx0 ),
+
+    DEBUGPRINT ( "Inside getEiVec4Cofactor" ),
+
+    eivec : makelist ( 0, 3 ),
+    Tensor4Cofactor : copymatrix ( matrix_ARG ),
+    Tensor4Cofactor : getMatrWithEivals ( Tensor4Cofactor, eival_ARG ),
+    /*
+    D_denom : sqrt ( sum ( ( determinant ( minor ( Tensor4Cofactor, idx_ARG, idx0 ) ) )^2, idx0, 1, 3 ) ),
+    */
+    for idx0 : 1 thru 3 do block
+    (
+      eivec[idx0] : ( determinant ( minor ( Tensor4Cofactor, idx_ARG, idx0 ) ) ) \
+       * ( -1 )^( idx_ARG + idx0 ) / D_denom                                      
+      /*
+      eivec[idx0] : ( determinant ( minor ( Tensor4Cofactor, idx_ARG, idx0 ) ) ) \
+       * ( -1 )^( idx_ARG + idx0 )                                                
+      */
+    ),
+
+    DEBUGPRINT1 ( "eivec", eivec ),
+    DEBUGPRINT1 ( "cofactor_ARG", cofactor_ARG ),
+    DEBUGSTOP1 : DEBUGRND ( DEBUGSTOP1 ),
+
+    return ( eivec )
+  ),
+
+/*****************************************************************************/
+
+  getAmbigEiVecs4Term ( M_ARG, t_ARG, idx_ARG, lambda_ARG ) := block
+  (
+    local                                         \
+    (                                             \
+     b_RES,                                       \
+     allEivecTerms, e_GF, eqsum1, iNumberOfRoots, \
+     idxs, idx_const, idx_var, idx0               \
+    ),                                             
+
+    DEBUGPRINT ( "Inside getAmbigEiVecs4Term" ),
+
+    allEivecTerms : [ 1, 2, 3 ],
+    idxs : delete ( allEivecTerms[idx_ARG], allEivecTerms ),
+    idx_const : idxs[2],
+    idx_var : idxs[1],
+
+    DEBUGPRINT1 ( "Indicies of eigenvalues", idxs ),
+    DEBUGPRINT1 ( "idx_ARG value", idx_ARG ),
+
+    b_RES : [e_GF[1], e_GF[2], e_GF[3]],
+
+    DEBUGPRINT1 ( "Initial value of b_RES is", b_RES ),
+    DEBUGSTOP23 : DEBUGRND ( DEBUGSTOP23 ),
+
+    e_GF[idx_ARG] : 0,
+    eqsum1 : sum ( M_ARG[idx_ARG,idxs[idx0]] \
+     * e_GF[idxs[idx0]], idx0, 1, 2 ),        
+    e_GF[idx_var] : solve ( eqsum1, e_GF[idx_var] ),
+
+    DEBUGPRINT1 ( "e_GF[idx_var] value", e_GF[idx_var] ),
+    DEBUGSTOP8 : DEBUGRND ( DEBUGSTOP8 ),
+
+    eqsum2 : sum ( ( e_GF[idxs[idx0]] )^2, idx0, 1, 2 ),
+    solveEivec2ndTerm_EQN : eqsum2 - 1,
+
+    DEBUGPRINT1 ( "solveEivec2ndTerm_EQN", solveEivec2ndTerm_EQN ),
+    DEBUGSTOP8 : DEBUGRND ( DEBUGSTOP8 ),
+
+    Eivec2ndTermRoots : solve ( solveEivec2ndTerm_EQN, e_GF[idx_const] ),
+    iNumberOfRoots : length ( Eivec2ndTermRoots ),
+
+    DEBUGPRINT1 ( "iNumberOfRoots", iNumberOfRoots ),
+    DEBUGPRINT1 ( "Roots are", Eivec2ndTermRoots ),
+    DEBUGSTOP11 : DEBUGRND ( DEBUGSTOP11 ),
+
+    if ( iNumberOfRoots > 2 )
+    then
+      error ( "Numerber of roots are larger then 2." ),
+    e_GF[idx_const] : map ( rhs, Eivec2ndTermRoots ),
+
+    DEBUGPRINT1 ( "e_GF[idx_const]", e_GF[idx_const] ),
+    DEBUGSTOP13 : DEBUGRND ( DEBUGSTOP13 ),
+    DEBUGPRINT1 ( "e_GF[idx_var]", e_GF[idx_var] ),
+    DEBUGPRINT1 ( "length ( e_GF[idx_var] ) is", length ( e_GF[idx_var] ) ),
+    DEBUGSTOP10 : DEBUGRND ( DEBUGSTOP10 ),
+
+    e_GF[idx_var] : ev ( e_GF[idx_var] ),
+
+    DEBUGPRINT1 ( "e_GF[idx_var]", e_GF[idx_var] ),
+    DEBUGPRINT1 ( "length ( e_GF[idx_var] ) is", length ( e_GF[idx_var] ) ),
+    DEBUGSTOP10 : DEBUGRND ( DEBUGSTOP10 ),
+
+    e_GF[idx_ARG] : ev ( e_GF[idx_ARG] ),
+
+    DEBUGPRINT1 ( "Reevaluated e_GF[idx_ARG] is", e_GF[idx_ARG] ),
+    DEBUGPRINT1 ( "lengh ( e_GF[idx_ARG] ) is", length ( e_GF[idx_ARG] ) ),
+    DEBUGSTOP10 : DEBUGRND ( DEBUGSTOP10 ),
+    DEBUGPRINT ( "Reevaluating b_RES ..." ),
+
+    if                                                \
+    (                                                 \
+     ( length ( e_GF[idx_ARG] ) # iNumberOfRoots )    \
+     or ( length ( e_GF[idx_ARG] ) # iNumberOfRoots ) \
+    )                                                  
+    then
+      error ( "Number of roots must be equal in each vectorial component." ),
+    /*
+    b_RES[1] : ev ( b_RES[1] ),
+    b_RES[2] : ev ( b_RES[2] ),
+    b_RES[3] : ev ( b_RES[3] ),
+    return ( b_RES )
+    */
+    return ( maplist ( ev, b_RES ) )
+  ),
+
+/*****************************************************************************/
+
+  getCofactors ( M_ARG, eival_ARG ) := block
+  (
+    local                                   \
+    (                                       \
+      DiagonalCofactors, Tensor4Cofactor,   \
+      idx_0, i_1, i_2, minorTensor4Cofactor \
+    ),                                       
+
+    DEBUGPRINT ( "Inside getCofactors" ),
+
+    DiagonalCofactors : makelist ( 0, 3 ),
+    Tensor4Cofactor : copymatrix ( M_ARG ),
+    for idx_0 : 1 thru 3 do block
+    (
+      Tensor4Cofactor : getMatrWithEivals ( Tensor4Cofactor, eival_ARG ),
+
+      DEBUGPRINT ( "Checking if Tensor4Cofactor has correct terms" ),
+      DEBUGPRINT1 ( "Tensor4Cofactor raw code", Tensor4Cofactor ),
+      /* BGN DEBUG */
+      for i_1 : 1 thru 3 do
+        for i_2 : 1 thru 3 do
+          DEBUGPRINT2 (                                           \
+           printf ( false, "Tensor4Cofactor[~d, ~d]", i_1, i_2 ), \
+           Tensor4Cofactor[i_1, i_2] ),                            
+      /* END DEBUG */
+      DEBUGSTOP18 : DEBUGRND ( DEBUGSTOP18 ),
+
+      DiagonalCofactors[idx_0] :                                \
+       determinant ( minor ( Tensor4Cofactor, idx_0, idx_0 ) ),  
+      /* TODO */
+      /* HERE */
+
+      /* BGN DEBUG */
+      if ( bDebugPrint )
+      then
+        minorTensor4Cofactor : minor ( Tensor4Cofactor, idx_0, idx_0 ),
+      /* END DEBUG */
+      DEBUGPRINT1 ( "DETERMINANT MINOR ARG", minorTensor4Cofactor[1][1] ),
+      DEBUGPRINT1 ( "DETERMINANT MINOR ARG", minorTensor4Cofactor[2][1] ),
+      DEBUGPRINT1 ( "DETERMINANT MINOR ARG", minorTensor4Cofactor[1][2] ),
+      DEBUGPRINT1 ( "DETERMINANT MINOR ARG", minorTensor4Cofactor[2][2] ),
+      DEBUGSTOP2 : DEBUGRND ( DEBUGSTOP2 ),
+      DEBUGPRINT1 ( "Minor",  reveal ( minorTensor4Cofactor, 1 ) ),
+      DEBUGSTOP2 : DEBUGRND ( DEBUGSTOP2 ),
+      DEBUGPRINT1 ( "Determinant",                                \
+       determinant ( minor ( Tensor4Cofactor, idx_0, idx_0 ) ) ),  
+      DEBUGSTOP2 : DEBUGRND ( DEBUGSTOP2 ),
+      DEBUGPRINT1 ( "DiagonalCofactors[idx_0]", DiagonalCofactors[idx_0] ),
+      DEBUGSTOP2 : DEBUGRND ( DEBUGSTOP2 )
+
+    ),
+
+    DEBUGPRINT1 ( "DiagonalCofactors", DiagonalCofactors ),
+    DEBUGSTOP1 : DEBUGRND ( DEBUGSTOP1 ),
+
+    return ( DiagonalCofactors )
+  ),
+
+/*****************************************************************************/
+
+  getEivals ( M_ARG ) := block
+  (
+    local ( eigenvals_RES, eigenvals, P_chi, \
+            lambda_r, lambda_s, idx_0, idx_1 \
+          ),                                  
+
+    DEBUGPRINT ( "Inside getEivals" ),
+    DEBUGPRINT1 ( "Matrix", M_ARG ),
+    DEBUGSTOP20 : DEBUGRND ( DEBUGSTOP20 ),
+
+    eigenvals_RES : makelist ( makelist ( 0, 3 ), 2 ),
+    eigenvals : eigenvalues ( M_ARG ),
+
+    DEBUGPRINT ( "Sorting eigenvalues" ),
+    DEBUGPRINT1 ( "Unsorted eigenvalues", eigenvals ),
+    DEBUGSTOP20 : DEBUGRND ( DEBUGSTOP20 ),
+
+    for idx_0 : 1 while idx_0 <= length ( eigenvals[iIdxMultiplicities] ) \
+     do                                                                    
+      for idx_1 : 1 while idx_1 <= eigenvals[iIdxMultiplicities][idx_0] \
+       do block                                                          
+      (
+        eigenvals_RES[iIdxEigens][idx_0 + idx_1 - 1] : \
+         eigenvals[iIdxEigens][idx_0],                  
+        eigenvals_RES[iIdxMultiplicities][idx_0 + idx_1 - 1] : \
+         eigenvals[iIdxMultiplicities][idx_0]                   
+      ),
+
+    DEBUGPRINT1 ( "Sorted eigenvalues", eigenvals_RES ),
+    DEBUGSTOP20 : DEBUGRND ( DEBUGSTOP20 ),
+
+    return ( eigenvals_RES )
+  ),
+
+/*****************************************************************************/
+
+  getBothEigenValuesAndVectors ( tensor_ARG ) := block
+  (
+    local ( eiveclist, f_matrix, eigenvec_list, idx_0, idx_1 ),
+
+    DEBUGPRINT ( "Inside getBothEigenValuesAndVectors" ),
+
+    eiveclist : makelist ( makelist ( 0, 3 ), 2 ),
+    f_matrix : itens2matr ( tensor_ARG ),
+
+    if ( bDebugPrint )
+    then block
+    (
+
+      DEBUGPRINT ( "Checking f_matrix" ),
+      DEBUGSTOP : DEBUGRND ( DEBUGSTOP ),
+
+      printMatrix2File ( f_matrix, TESTDEBUG, bSimplify )
+    ),
+
+    DEBUGPRINT ( "Evaluating eigenvectors of F_MATRIX" ),
+
+    eigenvec_list : eigenvectors ( f_matrix ),
+    for idx_0 : 1 while idx_0 <= (length(eigenvec_list[2])) do
+      for idx_1 : 1 while idx_1 <= eigenvec_list[1][2][idx_0] do block
+      (
+        eiveclist[1][idx_0 + idx_1 - 1] : eigenvec_list[2][idx_0][idx_1],
+        eiveclist[2][idx_0 + idx_1 - 1] : eigenvec_list[1][1][idx_0]
+      ),
+
+    return ( eiveclist )
+  ),
+
+/*****************************************************************************/
+
+  getAdjugateMatrix ( M_ARG ) := block
+  (
+    local ( idxr, idxc ),
+
+    return ( transpose ( apply ( matrix,                               \
+                                 makelist                              \
+                                 (                                     \
+                                  makelist                             \
+                                  (                                    \
+                                   (-1)^(idxr + idxc)                  \
+                                    * determinant ( minor ( M,         \
+                                                            idxr, idxc \
+                                                          )            \
+                                                  ),                   \
+                                   idxc, 1, 3                          \
+                                  ),                                   \
+                                  idxr, 1, 3                           \
+                                 )                                     \
+                               )                                       \
+                       )                                               \
+           )                                                            
+  ),
+
+/*****************************************************************************/
+
+  /* Compatibility features for TeX output: */
+  [
+   theomega : %omega001, thebeta : %beta001, thealpha : %alpha001,
+   therho : %rho001, thephi : %phi001, thelambda : %lambda001,
+   theepsilon : %epsilon001
+  ],
+  texput ( %omega001, "\\omega" ),
+  texput ( %beta001, "\\beta" ),
+  texput ( %alpha001, "\\alpha" ),
+  texput ( %rho001, "\\rho" ),
+  texput ( %phi001, "\\phi" ),
+  texput ( %lambda001, "\\lambda" ),
+  texput ( %epsilon001, "\\epsilon" ),
+  texput ( e_1, "{e^{\\prime}}" ),
+  texput ( e_0, "{e}" ),
+  chi_1221 : chi[1221],
+  chi_1122 : chi[1122],
+  chi_1212 : chi[1212],
+  theomega_0 : theomega[0],
+  /* End of compatibility features for TeX output. */
+  /* Export these functions to ./commons/defnitions.max */
+
+/*****************************************************************************/
+
+  radial_probe_ARG : 0,
+  azimuth_probe_ARG : 2,
+  z_displ_probe_ARG : 0,
+  E_TEM_common_probe_ARGS : [ radial_probe_ARG, azimuth_probe_ARG, z_displ_probe_ARG ],
+  radial_pump_ARG : 0,
+  azimuth_pump_ARG : 1,
+  z_displ_pump_ARG : 0,
+  E_TEM_common_pump_ARGS : [ radial_pump_ARG, azimuth_pump_ARG, z_displ_pump_ARG ],
+
+/*****************************************************************************/
+
+  iRotatePump1Probe : 0,/* 90 180 270 */
+  thephi : atan ( y / x ),
+  therho : sqrt ( x^2 + y^2 ),
+  z_r : k * theomega_0^2 / 2,
+  f : 1 / ( k * theomega_0 ),
+  r_vector ( z_displ ) := block
+  (
+    return ( sqrt( therho^2 + ( z + z_displ )^2 ) )
+  ),
+  poly_GL_pump : gen_laguerre (                                               \
+                  radial_pump_ARG, azimuth_pump_ARG,                          \
+                  therho^2 / ( 2 * f^2 * ( r_vector( z_displ_pump_ARG ) )^2 ) \
+                 ),                                                            
+  poly_GL_probe : gen_laguerre (                                       \
+                   radial_probe_ARG, azimuth_probe_ARG,                \
+                   therho^2                                            \
+                   / ( 2 * f^2 * ( r_vector( z_displ_probe_ARG ) )^2 ) \
+                  ),                                                    
+
+/*****************************************************************************/
+
+  load ( "eigen" ),
+  load ( itensor ),
+  load ( ctensor ),
+
+/*****************************************************************************/
+
+  /* ITensor calculus */
+  jones_calc ( RET_ARG, M_ARG, V_ARG ) := block
+  (
+    return                             \
+    (                                  \
+      (apply ( RET_ARG, [[i], []] ))   \
+      =                                \
+      (apply ( M_ARG, [[i,j], []] )) * \
+      (apply ( V_ARG, [[], [j]] ))     \
+    )                                   
+  ),
+  conditional_rotate ( RET_ARG, HE_beam_ARG, cond ) := block
+  (
+    /*
+    if   ( cond = 90 )
+    then
+      rot_matrix : rot90z
+    elseif ( cond = 180 )
+    then
+      rot_matrix : rot180z
+    elseif ( cond = 270 )
+    then
+      rot_matrix : rot270z
+    else
+      rot_matrix : rot0z,
+    if ( cond != 0 )
+    then
+      return                                   \
+      (                                        \
+        (apply ( RET_ARG, [[i], []] ))         \
+        =                                      \
+        (apply ( rot_matrix, [[i, j], []] )) * \
+        (apply ( HE_beam_ARG, [[], [j]] ))     \
+      )                                         
+    else
+    */
+    return                               \
+    (                                    \
+      (apply ( RET_ARG, [[i], []] ))     \
+      =                                  \
+      (apply ( HE_beam_ARG, [[i], []] )) \
+    )                                     
+  ),
+
+  /*
+  E_pump_EQN : jones_calc ( E_pump, QWP, E_TM_common_pump ),
+  E_probe_EQN : jones_calc ( E_probe, QWP, E_TM_common_probe ),
+  E1_EQN : E1([i], []) = E_pump([i], []),
+  E0_EQN : conditional_rotate ( E0, E_probe, iRotatePump1Probe ),
+  */
+
+  if ( not bSymbolicChi2 )
+  then block
+  (
+    /* More rigrous form of chi3 * E0 * E1 * E1C: */
+    /*
+    SchiE_EQN : SchiE([i_alpha],[]) =         \
+     chi3([i_alpha,j,k,l],[])                 \
+     * E0([],[j]) * E1([],[k]) * E1C([],[l]),  
+    */
+    /*
+     Comment the line above to use only generic form of this expression.
+    */
+    chi2NL_EQN : chi2NL([i_alpha, i_beta],[]) = \
+     SchiE([i_alpha],[]) * E0I([i_beta],[])      
+  ),
+  chi2_EQN : chi2([i_alpha, i_beta],[]) =                     \
+   chi2NL([i_alpha, i_beta],[]) + chi0([i_alpha, i_beta],[]),  
+
+  /* X: */
+  C1chi2IC1_EQN : C1chi2IC1([i_alpha,i_beta],[]) =        \
+   C1([i_alpha,i_gamma],[]) * chi2I([],[i_gamma,i_delta]) \
+   * C1([i_delta,i_beta],[]),                              
+  C2chi2IC2_EQN : C2chi2IC2([i_alpha,i_beta],[]) =        \
+   C2([i_alpha,i_gamma],[]) * chi2I([],[i_gamma,i_delta]) \
+   * C2([i_delta,i_beta],[]),                              
+
+  C2C1chi2IC1C2_EQN : C2C1chi2IC1C2([i_alpha,i_beta],[]) =    \
+   C2([i_alpha,i_gamma],[]) * C1chi2IC1([],[i_gamma,i_delta]) \
+   * C2([i_delta,i_beta],[]),                                  
+
+  /* Y: */
+  YC1chi2IC1_EQN : YC1chi2IC1([i_beta,i_alpha],[]) =                 \
+   Cyz([i_alpha,i_epsilon],[])                                       \
+   * ( Cxy([],[i_epsilon,i_gamma]) * C1chi2IC1([i_gamma,i_delta],[]) \
+       * Cxy([],[i_delta,i_zeta])                                    \
+     )                                                               \
+   * Cyz([i_zeta,i_beta],[]),                                         
+  YC2chi2IC2_EQN : YC2chi2IC2([i_beta,i_alpha],[]) =                                   \
+   Cyz([i_alpha,i_epsilon],[]) * ( Cxy([],[i_epsilon,i_gamma]) *                           \
+   C2chi2IC2([i_gamma,i_delta],[]) * Cxy([],[i_delta,i_zeta]) ) * Cyz([i_zeta,i_beta],[]),
+
+  YC2C1chi2IC1C2_EQN : YC2C1chi2IC1C2([i_beta,i_alpha],[]) =                                   \
+   Cyz([i_alpha,i_epsilon],[]) * ( Cxy([],[i_epsilon,i_gamma]) *                               \
+   C2C1chi2IC1C2([i_gamma,i_delta],[]) * Cxy([],[i_delta,i_zeta]) ) * Cyz([i_zeta,i_beta],[]),
+
+  Ychi2I_EQN : Ychi2I([i_beta,i_alpha],[]) =                                           \
+   Cyz([i_alpha,i_epsilon],[]) * ( Cxy([],[i_epsilon,i_gamma]) *                       \
+   chi2I([i_gamma,i_delta],[]) * Cxy([],[i_delta,i_zeta]) ) * Cyz([i_zeta,i_beta],[]),
+
+  /* Z: */
+  ZC1chi2IC1_EQN     : ZC1chi2IC1([i_beta,i_alpha],[]) =                                   \
+   Cxy([i_alpha,i_epsilon],[]) * ( Cyz([],[i_epsilon,i_gamma]) *                           \
+   C1chi2IC1([i_gamma,i_delta],[]) * Cyz([],[i_delta,i_zeta]) ) * Cxy([i_zeta,i_beta],[]),
+  ZC2chi2IC2_EQN     : ZC2chi2IC2([i_beta,i_alpha],[]) =                                   \
+   Cxy([i_alpha,i_epsilon],[]) * ( Cyz([],[i_epsilon,i_gamma]) *                           \
+   C2chi2IC2([i_gamma,i_delta],[]) * Cyz([],[i_delta,i_zeta]) ) * Cxy([i_zeta,i_beta],[]),
+  ZC2C1chi2IC1C2_EQN : ZC2C1chi2IC1C2([i_beta,i_alpha],[]) =                                   \
+   Cxy([i_alpha,i_epsilon],[]) * ( Cyz([],[i_epsilon,i_gamma]) *                               \
+   C2C1chi2IC1C2([i_gamma,i_delta],[]) * Cyz([],[i_delta,i_zeta]) ) * Cxy([i_zeta,i_beta],[]),
+  Zchi2I_EQN : Zchi2I([i_beta,i_alpha],[]) =                           \
+   Cxy([i_alpha,i_epsilon],[]) * ( Cyz([],[i_epsilon,i_gamma]) *                       \
+   chi2I([i_gamma,i_delta],[]) * Cyz([],[i_delta,i_zeta]) ) * Cxy([i_zeta,i_beta],[]),
+
+  Xaux_EQN : Xaux([i_alpha,i_beta],[]) = C2C1chi2IC1C2([i_alpha,i_beta],[]) + C2chi2IC2([i_alpha,i_beta],[]) + C1chi2IC1([i_alpha,i_beta],[]) + chi2I([i_alpha,i_beta],[]),
+  Yaux_EQN : Yaux([i_alpha,i_beta],[]) = YC2C1chi2IC1C2([i_alpha,i_beta],[]) + YC2chi2IC2([i_alpha,i_beta],[]) + YC1chi2IC1([i_alpha,i_beta],[]) + Ychi2I([i_alpha,i_beta],[]),
+  Zaux_EQN : Zaux([i_alpha,i_beta],[]) = ZC2C1chi2IC1C2([i_alpha,i_beta],[]) + ZC2chi2IC2([i_alpha,i_beta],[]) + ZC1chi2IC1([i_alpha,i_beta],[]) + Zchi2I([i_alpha,i_beta],[]),
+
+  Aaux_EQN          : Aaux([i_beta,i_alpha],[]) =               \
+    ( Cyz([i_alpha,i_epsilon],[]) *                    \
+   (                                                            \
+    Cxy([],[i_epsilon,i_gamma]) * chi2I([i_gamma,i_delta],[]) * \
+    Cxy([],[i_delta,i_zeta])                                    \
+   ) * Cyz([i_zeta,i_beta],[]) ),
+  Baux_EQN          : Baux([i_beta,i_alpha],[]) =               \
+    ( Cxy([i_alpha,i_epsilon],[]) *                    \
+   (                                                            \
+    Cyz([],[i_epsilon,i_gamma]) * chi2I([i_gamma,i_delta],[]) * \
+    Cyz([],[i_delta,i_zeta])                                    \
+   ) * Cxy([i_zeta,i_beta],[]) ),
+
+  NxXaux_EQN : NxXaux([i_alpha,i_beta],[]) =                                          \
+   Cxz([i_alpha,i_gamma],[]) * Xaux([],[i_gamma,i_delta]) * Cxz([i_delta,i_beta],[]),
+  NyYaux_EQN : NyYaux([i_alpha,i_beta],[]) =                                          \
+   Cxz([i_alpha,i_gamma],[]) * Yaux([],[i_gamma,i_delta]) * Cxz([i_delta,i_beta],[]),
+  NzZaux_EQN : NzZaux([i_alpha,i_beta],[]) =                                          \
+   Cxz([i_alpha,i_gamma],[]) * Zaux([],[i_gamma,i_delta]) * Cxz([i_delta,i_beta],[]),
+
+  Nxaux_EQN         : Nxaux([i_alpha,i_beta],[]) =           \
+   Cxz([i_alpha,i_gamma],[]) * chi2I([],[i_gamma,i_delta]) * \
+   Cxz([i_delta,i_beta],[]) - (1/2) * NxXaux([i_alpha,i_beta],[]),
+  Nyaux_EQN         : Nyaux([i_alpha,i_beta],[]) =           \
+   Cyz([i_alpha,i_gamma],[]) * chi2I([],[i_gamma,i_delta]) * \
+   Cyz([i_delta,i_beta],[]) - (1/2) * NyYaux([i_alpha,i_beta],[]),
+  Nzaux_EQN         : Nzaux([i_alpha,i_beta],[]) =           \
+   Cxy([i_alpha,i_gamma],[]) * chi2I([],[i_gamma,i_delta]) * \
+   Cxy([i_delta,i_beta],[]) - (1/2) * NzZaux([i_alpha,i_beta],[]),
+
+  N1aux_EQN : N1aux([i_beta,i_alpha],[]) = chi2I([i_alpha,i_beta],[]),
+  N2aux_EQN : N2aux([i_alpha,i_beta],[]) = Aaux([i_alpha,i_beta],[]) + \
+   Baux([i_alpha,i_beta],[]) - Nxaux([i_alpha,i_beta],[]) -            \
+   Nyaux([i_alpha,i_beta],[]) - Nzaux([i_alpha,i_beta],[]) - (1/4) *   \
+   (                                                                   \
+    Xaux([i_alpha,i_beta],[]) + Yaux([i_alpha,i_beta],[]) +            \
+    Zaux([i_alpha,i_beta],[])                                          \
+   ),                                                                   
+  /* End of ITensor calculus */
+
+/*****************************************************************************/
+
+  dim : 3,
+  ct_coords : [x_1, x_2, x_3],
+
+  /* CTensor conversion */
+  /*
+  E_pump_ICC : ic_convert ( E_pump_EQN ),
+  E_probe_ICC : ic_convert ( E_probe_EQN ),
+  E1_ICC : ic_convert ( E1_EQN ),
+  E0_ICC : ic_convert ( E0_EQN ),
+  */
+
+  if ( not bSymbolicChi2 )
+  then block
+  (
+    /*SchiE_EQN : ic_convert ( SchiE_EQN ),*/
+    chi2NL_ICC : ic_convert ( chi2NL_EQN )
+  ),
+  chi2_ICC : ic_convert ( chi2_EQN ),
+
+  C1chi2IC1_ICC : ic_convert ( C1chi2IC1_EQN ),
+  C2chi2IC2_ICC : ic_convert ( C2chi2IC2_EQN ),
+  C2C1chi2IC1C2_ICC : ic_convert ( C2C1chi2IC1C2_EQN ),
+
+  YC1chi2IC1_ICC : ic_convert ( YC1chi2IC1_EQN ),
+  YC2chi2IC2_ICC : ic_convert ( YC2chi2IC2_EQN ),
+  YC2C1chi2IC1C2_ICC : ic_convert ( YC2C1chi2IC1C2_EQN ),
+  Ychi2I_ICC : ic_convert ( Ychi2I_EQN ),
+
+  ZC1chi2IC1_ICC : ic_convert ( ZC1chi2IC1_EQN ),
+  ZC2chi2IC2_ICC : ic_convert ( ZC2chi2IC2_EQN ),
+  ZC2C1chi2IC1C2_ICC : ic_convert ( ZC2C1chi2IC1C2_EQN ),
+  Zchi2I_ICC : ic_convert ( Zchi2I_EQN ),
+
+  Xaux_ICC    : ic_convert (    Xaux_EQN ),
+  Yaux_ICC    : ic_convert (    Yaux_EQN ),
+  Zaux_ICC    : ic_convert (    Zaux_EQN ),
+
+  Aaux_ICC    : ic_convert (    Aaux_EQN ),
+  Baux_ICC    : ic_convert (    Baux_EQN ),
+
+  NxXaux_ICC    : ic_convert (    NxXaux_EQN ),
+  NyYaux_ICC    : ic_convert (    NyYaux_EQN ),
+  NzZaux_ICC    : ic_convert (    NzZaux_EQN ),
+
+  Nxaux_ICC    : ic_convert (    Nxaux_EQN ),
+  Nyaux_ICC    : ic_convert (    Nyaux_EQN ),
+  Nzaux_ICC    : ic_convert (    Nzaux_EQN ),
+
+  N1aux_ICC    : ic_convert (    N1aux_EQN ),
+  N2aux_ICC    : ic_convert (    N2aux_EQN ),
+  /* End of CTensor conversion */
+
+/*****************************************************************************/
+
+  /* Independent variables: */
+  [                                                       \
+   tensorBaseVectorsBevel_TOKEN : tensorBaseVectorsBevel, \
+   tensorBaseVectorsCart_TOKEN  : tensorBaseVectorsCart   \
+  ],                                                       
+  [chi3_TOKEN : chi3, x1_TOKEN : x1, x2_TOKEN : x2, x3_TOKEN : x3, x4_TOKEN : x4],
+  [E0_TOKEN : E0, E1_TOKEN : E1],
+  [E1C_TOKEN : E1C, E0I_TOKEN : E0I],
+  [E_TEM_common_probe_TOKEN : E_TEM_common_probe, E_TEM_common_pump_TOKEN : E_TEM_common_pump],
+  [E_TM_common_probe_TOKEN : E_TM_common_probe, E_TM_common_pump_TOKEN : E_TM_common_pump],
+  [QWP_TOKEN : QWP],/* constant wrapper */
+  [chi2I_TOKEN : chi2I],/* constant wrapper */
+  [C1_TOKEN : C1, C2_TOKEN : C2, Cyz_TOKEN : Cyz, Cxy_TOKEN : Cxy, Cxz_TOKEN : Cxz],/*constant wrappers*/
+  idx_TOKENS : [x1_TOKEN, x2_TOKEN, x3_TOKEN, x4_TOKEN],
+  idx0_TOKENS : [x1_TOKEN, x2_TOKEN],
+  idx1_TOKENS : [x1_TOKEN, x2_TOKEN, x3_TOKEN],
+
+/*****************************************************************************/
+
+  define                                                    \
+  (                                                         \
+   arraymake ( tensorBaseVectorsBevel_TOKEN, idx0_TOKENS ), \
+   apply     ( tensorBaseVectorsBevel_VALS,  idx0_TOKENS )  \
+  ),
+  define                                                   \
+  (                                                        \
+   arraymake ( tensorBaseVectorsCart_TOKEN, idx0_TOKENS ), \
+   apply     ( tensorBaseVectorsCart_VALS,  idx0_TOKENS )  \
+  ),
+  define (arraymake (chi3_TOKEN, idx_TOKENS), apply(chi3_VALS, idx_TOKENS) ),
+  define (arraymake (chi0_TOKEN, idx0_TOKENS), apply(chi0_VALS, idx0_TOKENS) ),
+  define (arraymake (E0_TOKEN, [x1_TOKEN]), E0_VALS(x1_TOKEN) ),
+  define (arraymake (E1_TOKEN, [x1_TOKEN]), E1_VALS(x1_TOKEN) ),
+  define (arraymake (E1C_TOKEN, [x1_TOKEN]), E1C_VALS(x1_TOKEN) ),
+  define (arraymake (E0I_TOKEN, [x1_TOKEN]), E0I_VALS(x1_TOKEN) ),
+
+  define (arraymake (E_TEM_common_pump_TOKEN, [x1_TOKEN]), E_TEM_common_pump_VALS(x1_TOKEN) ),
+  define (arraymake (E_TEM_common_probe_TOKEN, [x1_TOKEN]), E_TEM_common_probe_VALS(x1_TOKEN) ),
+  define (arraymake (E_TM_common_pump_TOKEN, [x1_TOKEN]), E_TM_common_pump_VALS(x1_TOKEN) ),
+  define (arraymake (E_TM_common_probe_TOKEN, [x1_TOKEN]), E_TM_common_probe_VALS(x1_TOKEN) ),
+
+  /* Constant wrappers: */
+  define (arraymake (QWP_TOKEN, idx0_TOKENS), apply(QWP_VALS, idx0_TOKENS) ),
+  define ( arraymake ( chi2I_TOKEN, idx0_TOKENS ), \
+           apply ( chi2I_VALS, idx0_TOKENS )       \
+         ),                                         
+  define (arraymake (C1_TOKEN, idx0_TOKENS), apply(C1_VALS, idx0_TOKENS) ),
+  define (arraymake (C2_TOKEN, idx0_TOKENS), apply(C2_VALS, idx0_TOKENS) ),
+  define (arraymake (Cyz_TOKEN, idx0_TOKENS), apply(Cyz_VALS, idx0_TOKENS) ),
+  define (arraymake (Cxy_TOKEN, idx0_TOKENS), apply(Cxy_VALS, idx0_TOKENS) ),
+  define (arraymake (Cxz_TOKEN, idx0_TOKENS), apply(Cxz_VALS, idx0_TOKENS) ),
+  /* End of constant wrappers. */
+  /* End of independent variables. */
+
+/*****************************************************************************/
+
+  C1_CONST  : [            \
+               [-1, 0, 0], \
+               [ 0, 1, 0], \
+               [ 0, 0, 1]  \
+              ],
+  C2_CONST  : [            \
+               [1, 0,  0], \
+               [0, 1,  0], \
+               [0, 0, -1]  \
+              ],
+  Cyz_CONST : [           \
+               [1, 0, 0], \
+               [0, 0, 1], \
+               [0, 1, 0]  \
+              ],
+  Cxy_CONST : [           \
+               [0, 1, 0], \
+               [1, 0, 0], \
+               [0, 0, 1]  \
+              ],
+  Cxz_CONST : [           \
+               [0, 0, 1], \
+               [0, 1, 0], \
+               [1, 0, 0]  \
+              ],
+
+/*****************************************************************************/
+
+  /* Constant wrappers: */
+  C1_VALS ( idx1, idx2 ) := block
+  (
+    return ( C1_CONST[idx1][idx2] )
+  ),
+  C2_VALS ( idx1, idx2 ) := block
+  (
+    return ( C2_CONST[idx1][idx2] )
+  ),
+  Cyz_VALS ( idx1, idx2 ) := block
+  (
+    return ( Cyz_CONST[idx1][idx2] )
+  ),
+  Cxy_VALS ( idx1, idx2 ) := block
+  (
+    return ( Cxy_CONST[idx1][idx2] )
+  ),
+  Cxz_VALS ( idx1, idx2 ) := block
+  (
+    return ( Cxz_CONST[idx1][idx2] )
+  ),
+  /* End of constant wrappers. */
+
+/*****************************************************************************/
+
+  exp_QWP : exp( %i * %pi / 2 ),
+  QWP_CONST : [                            \
+                [exp_QWP,           0, 0], \
+                [      0, -%i*exp_QWP, 0], \
+                [      0,           0, 1]  \
+              ],                            
+  QWP_VALS ( idx1, idx2 ) := block
+  (
+    return ( QWP_CONST[idx1][idx2] )
+  ),/* constant wrapper */
+
+  chi0_CONST : [                                       \
+                [theepsilon,           0,          0], \
+                [         0,  theepsilon,          0], \
+                [         0,           0, theepsilon]  \
+              ],                                        
+  chi0_VALS ( idx1, idx2 ) := block
+  (
+    return ( chi0_CONST[idx1][idx2] )
+  ),/* constant wrapper */
+
+/*****************************************************************************/
+
+  chi3_VALS ( idx1, idx2, idx3, idx4 ) := block
+  (
+    _res : 0,
+    if (                     \
+         ( idx1 = idx2 ) and \
+         ( idx2 = idx3 ) and \
+         ( idx3 = idx4 )     \
+       )
+    then
+      _res : chi_1221 + chi_1122 + chi_1212
+    else block
+    (
+    if (                     \
+             ( idx1 = idx2 ) and \
+             ( idx3 = idx4 )     \
+           )
+    then
+      _res : chi_1122,
+    if (                     \
+             ( idx1 = idx3 ) and \
+             ( idx2 = idx4 )     \
+           )
+    then
+      _res : chi_1212,
+    if (                     \
+             ( idx1 = idx4 ) and \
+             ( idx2 = idx3 )
+           )
+    then
+      _res : chi_1221
+    ),
+    return ( _res )
+    ),
+
+/*****************************************************************************/
+
+  E_TETM_common ( radial, azimuth, z_displ, poly_GL ) := block
+  (
+    return                                                             \
+    (                                                                  \
+      (                                                                \
+        -(                                                             \
+          ( (%i)^( 2*radial - azimuth + 1 ) * z_r ) /                  \
+          ( ( r_vector( z_displ ) )^2 * therho^2 )                     \
+         ) *                                                           \
+        (therho / ( sqrt(2) * ( r_vector( z_displ ) ) * f ))^azimuth * \
+        poly_GL *                                                      \
+        exp                                                            \
+        (                                                              \
+         %i*k*( r_vector( z_displ ) ) -                                \
+         therho^2 / ( 4* f^2 * ( r_vector( z_displ ) )^2 )             \
+        ) *                                                            \
+        cos( azimuth * thephi )                                        \
+      )                                                                \
+    )                                                                   
+  ),
+
+/*****************************************************************************/
+
+  E_TM_common_xyz ( radial, azimuth, z_displ, poly_GL ) := block
+  (
+    return                                                                        \
+    (                                                                             \
+      (                                                                           \
+        E_TETM_common ( radial, azimuth, z_displ, poly_GL ) * y * ( z + z_displ ) \
+      )                                                                           \
+    )
+  ),
+  E_TE_common_xyz ( radial, azimuth, z_displ, poly_GL ) := block
+  (
+    return                                                      \
+    (                                                           \
+      (                                                         \
+        E_TETM_common ( radial, azimuth, z_displ, poly_GL ) * x \
+      )                                                         \
+    )
+  ),
+
+/*****************************************************************************/
+
+  E_TE_common ( radial, azimuth, z_displ, idx, poly_GL ) := block
+  (
+    _result : 0,
+    if ( idx = 1 )
+    then
+      _result : E_TE_common_xyz ( radial, azimuth, z_displ, poly_GL ) * y
+    elseif ( idx = 2 )
+    then
+      _result : -E_TE_common_xyz ( radial, azimuth, z_displ, poly_GL ) * x
+    elseif ( idx = 3 )
+    then
+      _result : 0,
+    return ( ( _result ) )
+  ),
+  E_TM_common ( radial, azimuth, z_displ, idx, poly_GL ) := block
+  (
+    _result : 0,
+    if ( idx = 1 )
+    then
+      _result : E_TE_common_xyz( radial, azimuth, z_displ, poly_GL ) * x * ( z + z_displ )
+    elseif ( idx = 2 )
+    then
+      _result : E_TE_common_xyz( radial, azimuth, z_displ, poly_GL ) * y * ( z + z_displ )
+    elseif ( idx = 3 )
+    then
+      _result : -E_TE_common_xyz( radial, azimuth, z_displ, poly_GL ) * therho**2,
+    return ( ( _result ) )
+  ),
+
+/*****************************************************************************/
+
+  /*
+  E_TEM_common ( radial, azimuth, z_displ, idx, poly_GL ) := block
+  (
+    E_TM : E_TM_common( radial, azimuth, z_displ, idx, poly_GL ),
+    E_TE : E_TE_common( radial, azimuth, z_displ, idx, poly_GL ),
+    return ( E_TM + E_TE )
+  ),
+  */
+
+/*****************************************************************************/
+
+  E_TM_common_probe_VALS ( idx ) := block
+  (
+    return ( apply ( E_TM_common, append ( E_TEM_common_probe_ARGS, [idx, poly_GL_probe] ) ) )
+  ),
+  E_TEM_common_probe_VALS ( idx ) := block
+  (
+    return ( apply ( E_TEM_common, append ( E_TEM_common_probe_ARGS, [idx, poly_GL_probe] ) ) )
+  ),
+
+/*****************************************************************************/
+
+  E_TM_common_pump_VALS ( idx ) := block
+  (
+    return ( apply ( E_TM_common, append ( E_TEM_common_pump_ARGS, [idx, poly_GL_pump] ) ) )
+  ),
+  E_TEM_common_pump_VALS ( idx ) := block
+  (
+    return ( apply ( E_TEM_common, append ( E_TEM_common_pump_ARGS, [idx, poly_GL_pump] ) ) )
+  ),
+
+/*****************************************************************************/
+
+  E0_VALS ( idx ) := block
+  (
+    local ( e0_RES ),
+
+    /* E0 in generic form: */
+    e0_RES : e_0[idx],
+    /* Comment line below if you need E0 in generic form: */
+    /*
+    e0_RES : e_0[idx] * exp ( %i * ( (-1) * l * thephi + b[0] * z ) ),
+    */
+
+    return e0_RES
+  ),
+  E0I_VALS ( idx ) := block
+  (
+    return ( 1 / E0[idx] )
+  ),
+  E1_VALS ( idx ) := block
+  (
+    return ( e_1[idx] * exp ( %i * ( thephi - b[1] * z ) ) )
+  ),
+  E1C_VALS ( idx ) := block
+  (
+    return ( conjugate( E1[idx] ) )
+  ),
+
+/*****************************************************************************/
+
+  /* CTensor evaluation: */
+  /*
+  ev ( E_probe_ICC ),
+  ev ( E_pump_ICC ),
+  ev ( E1_ICC ),
+  ev ( E0_ICC ),
+  */
+
+  if ( not bSymbolicChi2 )
+  then block
+  (
+    /*
+    ev ( SchiE_EQN ),
+    */
+    ev ( chi2NL_ICC )
+  ),
+  ev ( chi2_ICC ),
+
+/*****************************************************************************/
+
+  DEBUGPRINT ( "Now going to invert chi2_MATRIX" ),
+
+  if ( not bDoNotInvert )
+  then block
+  (
+    chi2_MATRIX : tens2matr ( chi2 ),
+    chi2I_CONST : getAdjugateMatrix ( chi2_MATRIX )
+  )
+
+
+  /* BGN DEBUG */
+  /*
+  for idx_0 : 1 thru 3 do block
+  (
+    DEBUGPRINT1 ( apply ( printf,                                       \
+                          [false, "chi2[~d,~d]", makelist ( idx_0, 2 )] \
+                        ),                                              \
+                  chi2[idx_0,idx_0]                                     \
+                ),                                                       
+    DEBUGPRINT1 ( apply ( printf,                 \
+                          [ false,                \
+                            "chi2_MATRIX[~d,~d]", \
+                            makelist ( idx_0, 2 ) \
+                          ]                       \
+                        ),                        \
+                  chi2_MATRIX[idx_0,idx_0]        \
+                )                                  
+  ),
+  */
+  /* END DEBUG */
+
+
+  chi2I_VALS ( idx1, idx2 ) := block
+  (
+    if ( bDoNotInvert )
+    then
+      return ( chi2[idx1,idx2] )
+    else
+      return ( chi2I_CONST[idx1,idx2] )
+  ),/* constant wrapper */
+
+/*****************************************************************************/
+
+  ev ( C1chi2IC1_ICC ),
+  ev ( C2chi2IC2_ICC ),
+  ev ( C2C1chi2IC1C2_ICC ),
+
+  ev ( YC1chi2IC1_ICC ),
+  ev ( YC2chi2IC2_ICC ),
+  ev ( YC2C1chi2IC1C2_ICC ),
+  ev ( Ychi2I_ICC ),
+
+  ev ( ZC1chi2IC1_ICC ),
+  ev ( ZC2chi2IC2_ICC ),
+  ev ( ZC2C1chi2IC1C2_ICC ),
+  ev ( Zchi2I_ICC ),
+
+  ev ( Xaux_ICC ),
+  ev ( Yaux_ICC ),
+  ev ( Zaux_ICC ),
+
+  ev ( Aaux_ICC ),
+  ev ( Baux_ICC ),
+
+  ev ( NxXaux_ICC ),
+  ev ( NyYaux_ICC ),
+  ev ( NzZaux_ICC ),
+
+  ev ( Nxaux_ICC ),
+  ev ( Nyaux_ICC ),
+  ev ( Nzaux_ICC ),
+
+  ev ( N1aux_ICC ),
+  ev ( N2aux_ICC ),
+  /* End of CTensor evaluation. */
+
+/*****************************************************************************/
+
+  chi2I_MATRIX : itens2matr ( chi2I ),
+
+
+  /* BGN DEBUG TEST */
+  /*
+  chi2I_MATRIX : chi2I_MATRIX - transpose ( chi2I_MATRIX ),
+  chi2I_MATRIX[1,2] : 0,
+  chi2I_MATRIX[1,3] : 0,
+  chi2I_MATRIX[2,3] : 0,
+  chi2I_MATRIX[2,1] : 0,
+  chi2I_MATRIX[3,1] : 0,
+  chi2I_MATRIX[3,2] : chi2I_MATRIX[2,2],
+  chi2I_MATRIX[3,3] : chi2I_MATRIX[2,2],
+  */
+  /* END DEBUG TEST */
+
+
+  lambdas : getEivals ( chi2_MATRIX ),/* Matrix of NONINVERTED (!!!SIC!!!)  \
+                                          second order CHI  tensor!        */
+  for idx_0 : 1 step 1                                               \
+   while ((idx_0 < 4) and (not bEvaluateAmbigEivecs4MultipleEivals)) \
+   do                                                                 
+    if ( lambdas[iIdxMultiplicities][idx_0] > 1 )
+    then
+      bEvaluateAmbigEivecs4MultipleEivals : true,
+
+  DEBUGPRINT1 ( printf ( false, "~s~s",                          \
+                         "List of eigenvalues corresponding to", \
+                         " bevel basis of eigenvectors",         \
+                       ),                                        \
+                lambdas                                          \
+              ),                                                  
+  DEBUGSTOP2 : DEBUGRND ( DEBUGSTOP2 ),
+
+/*****************************************************************************/
+
+  /*
+    Make sure that first derivative of matrix determinant with respect to   \
+     eigenvalue is zero for multiple eigenvalues and nonzero for single:     
+  */
+
+  DEBUGPRINT ( "Checking if matrix is symmetric" ),
+  DEBUGPRINT1 ( "1221", SAGElikeLiteSimplify ( chi2I_MATRIX[1,2]   \
+                                               - chi2I_MATRIX[2,1] \
+                                             )                     \
+              ),                                                    
+  DEBUGPRINT1 ( "2332", SAGElikeLiteSimplify ( chi2I_MATRIX[2,3]   \
+                                               - chi2I_MATRIX[3,2] \
+                                             )                     \
+              ),                                                    
+  DEBUGPRINT1 ( "1331", SAGElikeLiteSimplify ( chi2I_MATRIX[1,3]   \
+                                               - chi2I_MATRIX[3,1] \
+                                             )                     \
+              ),                                                    
+  DEBUGSTOP19 : DEBUGRND ( DEBUGSTOP19 ),
+
+  for idx_s : 1 thru 3 do block
+  (
+    if ( lambdas[iIdxMultiplicities][idx_s] > 0 )
+    then block
+    (
+      /*
+      dP_dlambda : sum ( getCofactors ( chi2I_MATRIX,              \
+                                        lambdas[iIdxEigens][idx_s] \
+                                      ),                           \
+                                      idx0, 1, 3                   \
+                       ),                                           
+      */
+      /* HERE TODO MERGE */
+      N_chi : getMatrWithEivals ( chi2I_MATRIX, lambda_GF[idx_s] ),
+      P_chi : determinant ( N_chi ),
+      dP_dlambda : diff ( P_chi, lambda_GF[idx_s] ),
+      lambda_GF[idx_s] : lambdas[iIdxEigens][idx_s],
+      dP_dlambda : ev ( dP_dlambda ),
+
+      DEBUGPRINT1 ( "First derivative of determinant is equal to", \
+       SAGElikeLiteSimplify ( dP_dlambda ) ),                       
+      DEBUGPRINT1 ( "Index of eigenvalue is equal to", idx_s ),
+      DEBUGPRINT1 ( "Multiplicity of eigenvalue is equal to", \
+       lambdas[iIdxMultiplicities][idx_s] ),                       
+      DEBUGPRINT1 ( "Eigenvalue is equal to", lambdas[iIdxEigens][idx_s] ),
+      DEBUGSTOP17 : DEBUGRND ( DEBUGSTOP17 )
+
+    )
+  ),
+
+/*****************************************************************************/
+
+
+  /*if ( not bSymbolicChi2 )*/
+  if ( true )
+  then block
+  (
+
+
+
+    /*
+    if ( bDebugPrint )
+    then block
+    (
+      printf ( true, "~%~%~a  chi2I :~%~%", strDebugPrint ),
+      printf                                       \
+      (                                            \
+       true, "~%~%~a  chi2I code :~%~%~a  ~a~%~%", \
+       strDebugPrint, strDebugPrint, chi2I         \
+      ),                                            
+      printf                                       \
+      (                                            \
+       true, "~%~%~a  chi2I[1,1] :~%~%~a  ~a~%~%", \
+       strDebugPrint, strDebugPrint, chi2I[1,1]    \
+      ),                                            
+      printf                                       \
+      (                                            \
+       true, "~%~%~a  chi2I[2,2] :~%~%~a  ~a~%~%", \
+       strDebugPrint, strDebugPrint, chi2I[2,2]    \
+      ),                                            
+      printf                                       \
+      (                                            \
+       true, "~%~%~a  chi2I[3,3] :~%~%~a  ~a~%~%", \
+       strDebugPrint, strDebugPrint, chi2I[3,3]    \
+      ),                                            
+      printf                                                      \
+      (                                                           \
+       true , "~%~%~a  Now going calculate eigenvectors ...~%~%", \
+       strDebugPrint                                              \
+      )                                                            
+    ),
+    */
+    DEBUGPRINT ( "Evaluating BOTH eigenvectors and eigenvalues of chi2I" ),
+    DEBUGSTOP : DEBUGRND ( DEBUGSTOP ),
+
+    /*
+    eiveclistBevel : getBothEigenValuesAndVectors ( chi2I ),
+    DEBUGPRINT ( "Evaluating eigenvectors 4 comparision" ),
+    */
+
+/*****************************************************************************/
+
+    /*
+      i_alpha - index of nonzero cofactor;
+    */
+    CheckIfEquation4EigenvectorAreZero_EQN :                   \
+     CheckIfEquation4EigenvectorAreZero([i_alpha,i_beta],[]) = \
+     chi2I([i_beta],[i_gamma]) * eivecs([i_alpha,i_gamma],[])  \
+     - eivecsXeival([i_alpha,i_beta],[]),                       
+
+    CheckIfEquation4EigenvectorAreZero_ICC :                \
+     ic_convert ( CheckIfEquation4EigenvectorAreZero_EQN ),  
+
+    [eivecs_TOKEN : eivecs, eivecsXeival_TOKEN : eivecsXeival],
+
+    define (arraymake (eivecs_TOKEN, idx0_TOKENS), apply ( eivecs_VALS, [x1_TOKEN]) ),
+    define (arraymake (eivecsXeival_TOKEN, idx0_TOKENS), apply ( eivecsXeival_VALS, [x1_TOKEN]) ),
+
+/*****************************************************************************/
+
+    eivecs_CONST : makelist ( 0, 3 ),
+
+    DEBUGPRINT1 ( "Uninitialised eivecs", eivecs_CONST ),
+    DEBUGSTOP1 : DEBUGRND ( DEBUGSTOP1 ),
+
+    idx_OfTheOnlySingleEival : -1,
+    iIdx1stNZcofacSingleEival : -1,
+    cnt_NumberOfNonzeroCofactors : 0,
+    for idx_0 : 1 thru 3 do
+      if                                                \
+      (                                                 \
+       ( ( idx_OfTheOnlySingleEival = -1 )              \
+       or ( not bEvaluateAmbigEivecs4MultipleEivals ) ) \
+       and ( lambdas[iIdxMultiplicities][idx_0] = 1 )   \
+      )                                                  
+      then block
+      (
+
+        DEBUGPRINT ( "Evaluation of eigenvectors" ),
+        DEBUGSTOP15 : DEBUGRND ( DEBUGSTOP15 ),
+
+        if ( idx_OfTheOnlySingleEival = -1 )
+        then
+          idx_OfTheOnlySingleEival : idx_0,
+
+        DEBUGPRINT ( "Searching for nonzero cofactors" ),
+
+        cofactorlistBevel : getCofactors ( chi2I_MATRIX, lambdas[1][idx_0] ),
+
+        for idx_1 : 1 thru 3 do
+          if                                    \
+          (                                     \
+           ( cnt_NumberOfNonzeroCofactors < 1 ) \
+           and ( cofactorlistBevel[idx_1] # 0 ) \
+          )                                      
+          then block
+          (
+            cnt_NumberOfNonzeroCofactors : cnt_NumberOfNonzeroCofactors + 1,
+            if ( iIdx1stNZcofacSingleEival = -1 )
+            then
+              iIdx1stNZcofacSingleEival : idx_1,
+            eivecs_CONST[idx_0] :                     \
+             getEiVec4Cofactor                        \
+             (                                        \
+              chi2I_MATRIX, cofactorlistBevel[idx_1], idx_1, \
+              lambdas[1][idx_0]                       \
+             ),                                        
+
+            DEBUGPRINT1 ( "eivecs_CONST[idx_0]", eivecs_CONST[idx_0] ),
+            DEBUGSTOP1 : DEBUGRND ( DEBUGSTOP1 )
+
+          ),
+
+        DEBUGPRINT1 ( "idx_0 is", idx_0 ),
+        DEBUGPRINT1 ( "Nonzero cofactors count is", \
+         cnt_NumberOfNonzeroCofactors ),             
+        DEBUGSTOP7 : DEBUGRND ( DEBUGSTOP7 ),
+
+        cnt_NumberOfNonzeroCofactors : 0
+
+      ),
+
+    cnt_NumberOfNonzeroCofactors : 0,
+    if ( bEvaluateAmbigEivecs4MultipleEivals )
+    then block
+    (
+
+      DEBUGPRINT ( "Evaluation of ambiguous eigenvectors" ),
+      DEBUGSTOP15 : DEBUGRND ( DEBUGSTOP15 ),
+
+      idx_OfDoubleEival : -1,
+      idx_bAmbig : 1,
+      eivecsAmbig_CONST : makelist ( 0, 2 ),
+      for idx_0 : 1 thru 3 do
+        if ( lambdas[iIdxMultiplicities][idx_0] > 1 )
+        then block
+        (
+          if ( idx_OfDoubleEival = -1 )
+          then block
+          (
+            idx_OfDoubleEival : idx_0,
+
+            DEBUGPRINT ( "Searching for nonzero terms" ),
+
+            termlistBevel : makelist ( chi2I[idx0,idx0]         \
+             - lambdas[iIdxMultiplicities][idx0], idx0, 1, 3 ),  
+            for idx_1 : 1 thru 3 do
+              if ( ( idx_bAmbig < 3 ) and ( termlistBevel[idx_1] # 0 ) )
+              then block
+              (
+                cnt_NumberOfNonzeroCofactors : cnt_NumberOfNonzeroCofactors + 1,
+
+                DEBUGSTOP8 : DEBUGRND ( DEBUGSTOP8 ),
+                DEBUGPRINT ( "Evaluating ambiguous vactor pair" ),
+
+                /* INITIALIZING GENFORMS */
+                idx_GENFORM1 : idx_1 + 3 * idx_0,
+                M_chi_GENFORM : matrixGF_TOKEN[idx_GENFORM1],
+                lambdaGF : lambdaGF_TOKEN[idx_GENFORM1],
+                /* EVALUATING GENFORMS */
+                eivecsAmbig_CONST[idx_bAmbig] :                 \
+                 getAmbigEiVecs4Term                            \
+                 (                                              \
+                  M_chi_GENFORM,                                \
+                  M_chi_GENFORM[idx_1,idx_1] - lambdaGF, idx_1, \
+                  lambdaGF                                      \
+                 ),                                              
+                /* REEVALUATION OF GENFORMS */
+                matrixGF_TOKEN[idx_GENFORM1] : chi2I_MATRIX,
+                lambdaGF_TOKEN[idx_GENFORM1] : lambdas[iIdxEigens][idx_0],
+
+                DEBUGPRINT1 ( "eivecsAmbig_CONST[idx_bAmbig]", \
+                 eivecsAmbig_CONST[idx_bAmbig] ),               
+
+                DEBUGSTOP12 : DEBUGRND ( DEBUGSTOP12 ),
+
+                eivecsAmbig_CONST[idx_bAmbig] :                  \
+                 fullmapl ( ev, eivecsAmbig_CONST[idx_bAmbig] ),  
+                idx_bAmbig : idx_bAmbig + 1,
+
+                DEBUGSTOP12 : DEBUGRND ( DEBUGSTOP12 )
+
+              ),
+
+            if ( cnt_NumberOfNonzeroCofactors < 2 )
+            then
+              error ( "Nonsymmetric matrix with double eigenvalue: numerber of non-zero terms must be at least 2." ),
+
+            DEBUGPRINT1 ( "idx_0 is", idx_0 ),
+            DEBUGPRINT1 ( "Nonzero terms count is", \
+            cnt_NumberOfNonzeroCofactors ),          
+            DEBUGSTOP7 : DEBUGRND ( DEBUGSTOP7 )
+
+          )
+        )
+    ),
+
+    /*
+    idx1 - index of nonzero cofactor;
+    */
+    eivecs_VALS ( idx1, idx2 ) := block
+    (
+      if ( bEvaluateAmbigEivecs4MultipleEivals )
+      then block
+      (
+
+        DEBUGPRINT ( "Evaluation of _VALS function eivals" ),
+        DEBUGSTOP15 : DEBUGRND ( DEBUGSTOP15 ),
+
+        if ( ( idx1 = 1 ) or ( idx1 = 2 ) )
+        then
+          return ( eivecsAmbig_CONST[idx1][idx2][idxRoot] )
+        else
+          return ( eivecs_CONST[idx1][idx2][idxRoot] )
+      )
+      else
+        return ( eivecs_CONST[idx1][idx2][idxRoot] )
+    ),
+
+    eivecsXeival_VALS ( idx1, idx2 ) := block
+    (
+      if ( bEvaluateAmbigEivecs4MultipleEivals )
+      then block
+      (
+
+        DEBUGPRINT ( "Evaluation of _VALS function eivecsXeival" ),
+        DEBUGSTOP15 : DEBUGRND ( DEBUGSTOP15 ),
+
+        if ( ( idx1 = 1 ) or ( idx1 = 2 ) )
+        then
+          return ( eivecsAmbig_CONST[idx1][idx2][idxRoot] \
+           * lambdas[1][idx_OfDoubleEival] )               
+        else
+          return ( eivecs_CONST[idx1][idx2][idxRoot] \
+           * lambdas[1][idx_OfTheOnlySingleEival] )   
+      )
+      else
+        return ( eivecs_CONST[idx1][idx2][idxRoot] * \
+         lambdas[1][iSwitchEivec] )                   
+    ),
+
+    ev ( CheckIfEquation4EigenvectorAreZero_ICC ),
+
+/*****************************************************************************/
+
+    eiveclistBevelNonOrt : zeromatrix ( 3, 3 ),
+    gbevelbasismetric :                  \
+     sum ( sum ( sum (                   \
+        levi_civita([idx_2,idx_1,idx_0]) \
+        * eivecs[2,idx_2]                \
+        * eivecs[3,idx_1],               \
+        idx_2, 1, dim                    \
+       ),                                \
+       idx_1, 1, dim                     \
+      )                                  \
+      * eivecs[1,idx_0],                 \
+      idx_0, 1, dim                      \
+     ),                                   
+
+    for idx_0 : 1 thru 3 do block
+    (
+      eivecs_LIST : makelist ( eivecs[1,idx0], idx0, 1, 3 ),
+      eiveclistBevelPair :                         \
+       delete ( eivecs[1,idx_0], eivecs_LIST[1] ),  
+      for idx_1 : 1 thru 3 step 1 do
+        eiveclistBevelNonOrt[idx_0,idx_1] : (-1)^(idx_0 + 1) \
+         * sum ( sum (                                       \
+             levi_civita([idx_3,idx_2,idx_1])                \
+             * eiveclistBevelPair[1][idx_2]                  \
+             * eiveclistBevelPair[2][idx_3],                 \
+             idx_2, 1, dim                                   \
+            ),                                               \
+            idx_3, 1, dim                                    \
+           )                                                  
+    )
+  ),
+
+/*****************************************************************************/
+
+  /*
+  tensorBaseVectorsBevel_VALS ( idx1, idx2 ) := block
+  (
+    return ( eiveclistBevel[1][idx1][idx2] )/ * with respect to Cart./Cyl. * /
+  ),
+  */
+
+/*****************************************************************************/
+
+  /*
+  tensorTransformCart2Bevel : make_array ( fixnum, 3, 3 ),
+  */
+
+/*****************************************************************************/
+
+  DEBUGPRINT ( "Printing N2" ),
+
+  printMatrix2File ( chi2I, "chi2I", true ),
+
+  DEBUGPRINT ( "DONE printing of matrix" ),
+
+  /*
+  / * BGN DEBUG * /
+  DEBUGPRINT ( "Printing N2aux" ),
+  / * END DEBUG * /
+  printMatrix2File ( N2aux, "N2aux", true ),
+  / * BGN DEBUG * /
+  DEBUGPRINT ( "Printing TestTesor" ),
+  / * END DEBUG * /
+  printMatrix2File ( TestTensor, "TestTensor", true ),
+  */
+
+  /*if ( not bSymbolicChi2 )*/
+  if ( true )
+  then block
+  (
+
+    /* BGN DEBUG */
+    if ( bDebugPrint )
+    then
+      for idx0 : 1 thru 3 do
+        for idx1 : 1 thru 3 do block
+        (
+          DEBUGPRINT1 ( "CheckIfEquation4EigenvectorAreZero", SAGElikeLiteSimplify ( CheckIfEquation4EigenvectorAreZero[idx0,idx1] ) ),
+          DEBUGSTOP14 : DEBUGRND ( DEBUGSTOP14 )
+        ),
+    DEBUGSTOP6 : DEBUGRND ( DEBUGSTOP6 ),
+    /* END DEBUG */
+
+    printMatrix2File ( CheckIfEquation4EigenvectorAreZero, \
+     "CheckIfEquation4EigenvectorAreZero", true ),          
+    __printMatrix2File ( eivecs, "ManuallyCalcedUnambigEivecs", \
+     true, false, "Vector", "Term" ),                          
+
+    ostreamEivecs :                      \
+     printTexBGN2File ( "Eigenvalues" ),  
+    printVector2File ( ostreamEivecs, lambdas[iIdxEigens], 0, false ),
+    printTexEND2File ( ostreamEivecs ),
+
+    DEBUGPRINT ( "Printing eigenvectors of eiveclistBevel" ),
+
+    printMatrix2File ( eiveclistBevel[iIdxEigens], "AutoEigenvectors", true ),
+
+    DEBUGPRINT ( "DONE printing of eigenvectors" ),
+
+    print2D3x3Array2File ( eiveclistBevelTestTensor[1], \
+     "eiveclistBevelTestTensor", true ),                 
+
+    /* BGN DEBUG */
+    DEBUGPRINT ( "Printing eigenvectors of eiveclistBevelNonOrt" ),
+    DEBUGSTOP16 : DEBUGRND ( DEBUGSTOP16 ),
+    /* END DEBUG */
+
+    printMatrix2File ( eiveclistBevelNonOrt,     \
+     "EigenvectorListBevelNonOrthogonal", true )  
+
+  ),
+
+/*****************************************************************************/
+
+  return (done)
+);
+mainr()$

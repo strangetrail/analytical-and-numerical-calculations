@@ -1,0 +1,585 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* BevelBasisGeneric.mac */
+
+/*****************************************************************************/
+
+load ( "eigen" );
+load ( itensor );
+load ( ctensor );
+
+batchload ( "./common/utils.mac" );
+batchload ( "./common/CurvBasis.mac" );
+
+/*****************************************************************************/
+
+bDebugPrint   :  true;
+bCheckBreak   : false;
+setcheckbreak :  true;
+
+setcheck      : [DEBUGSTOP00];
+
+strDebugPrint : "DEBUG";
+
+/*****************************************************************************/
+
+mainr () := block
+(
+  local ( idx0, idx1, idx2, idx3, idx_0, idx_1, idx_2, idx_3 ),
+
+/*****************************************************************************/
+
+/*****************************************************************************/
+
+  E_test : [E_1, E_2, E_3],
+  H_test : [H_1, H_2, H_3],
+
+  for idx_1 : 1 thru 3 do block
+  (
+    strEnumbered : printf ( false, "E_~d", idx_1 ),
+    strHnumbered : printf ( false, "H_~d", idx_1 ),
+    strEnumberedTex : printf ( false, "{{E}_{~d}}", idx_1 ),
+    strHnumberedTex : printf ( false, "{{H}_{~d}}", idx_1 ),
+    texput ( eval_string ( strEnumbered ), strEnumberedTex ),
+    texput ( eval_string ( strHnumbered ), strHnumberedTex ),
+    eval_string ( printf ( false, "depends ( V_~d, thetas )", idx_1 ) ),
+    eval_string ( printf ( false, "depends ( E_~d, thetas )", idx_1 ) ),
+    eval_string ( printf ( false, "depends ( H_~d, thetas )", idx_1 ) ),
+    for idx_2 : 1 thru 3 do
+      eval_string ( printf ( false,                         \
+                              "depends ( M_~d~d, thetas )", \
+                              idx_1, idx_2                  \
+                           )                                \
+                  )                                          
+  ),
+
+  Ecov_test : makelist ( g_covar[idx0, idx0] * E_test[idx0], idx0, 1, 3 ),
+  printf ( true, "~%~%~%~%E_cov:~%" ),
+  print ( fullratsimp ( Ecov_test ) ),
+  curl_test : curl_curv ( Ecov_test ),
+  printf ( true, "~%~%Curl:~%" ),
+  print ( fullratsimp ( curl_test ) ),
+  div_test : div_curv ( curl_test ),
+  printf ( true, "~%~%Div:~%" ),
+  print ( fullratsimp ( div_test ) ),
+  printf ( true, "~%~%Covariant derivative:~%" ),
+  print ( xthru ( fullratsimp ( div_curv ( E_test ) ) ) ),
+  printf ( true, "~%~%~%" ),
+  DEBUGSTOP00 : "Result of div ( curl ( E ) ).",
+
+  printf ( true, "~%~%~%lapl ( H ):~%" ),
+  vectlapl_test : fullratsimp ( lapl_curv ( H_test ) ),
+  print ( vectlapl_test ),
+  ostremVectLaplCurv : openw ( "BevelBasisGeneric.VectLaplCurv.maxima.tex" ),
+  printTexDocBGN ( ostremVectLaplCurv ),
+  for idx_0 : 1 thru 3 do block
+  (
+    strTermNum : printf ( false, "Term No ~d:", idx_0 ),
+    printf ( ostremVectLaplCurv, strTermNum ),
+    printTexExpressionInline ( ostremVectLaplCurv, vectlapl_test[idx_0] )
+  ),
+  printTexDocEND ( ostremVectLaplCurv ),
+  close ( ostremVectLaplCurv ),
+  DEBUGSTOP00 : "Result of lapl ( H ).",
+
+  curlcurl_test : curlcurl_cartcurv ( H_test ),
+  print ( fullratsimp ( curlcurl_test ) ),
+  DEBUGSTOP00 : "Result of curlCart ( curlCurv ( H ) ).",
+
+  curlCurv_test : curl_curv ( Ecov_test ),
+  curlcurlcurl_test : curlcurl_cartcurv ( curlCurv_test ),
+  print ( fullratsimp ( curlcurlcurl_test ) ),
+  DEBUGSTOP00 : "Result of curlCart ( curlCurv ( curlCurv ( E ) ) ).",
+
+  laplvect_cartcurv_test : laplvect_cartcurv ( H_test ),
+  print ( fullratsimp ( laplvect_cartcurv_test ) ),
+  DEBUGSTOP00 : "Result of vectlapl_carcurv ( H ).",
+
+  print ( fullratsimp ( makelist ( laplvect_cartcurv_test[idx0] \
+                                   - vectlapl_test[idx0],       \
+                                   idx0, 1, 3                   \
+                                 )                              \
+                      )                                         \
+        ),                                                       
+  DEBUGSTOP00 : "Difference between lapl ( H ) and vectlapl_carcurv ( H ).",
+
+  V : [V_1, V_2, v_3],
+
+  M : apply ( matrix, makelist ( makelist ( eval_string ( printf ( false,     \
+                                                                    "M_~d~d", \
+                                                                    idx_1,    \
+                                                                    idx_2     \
+                                                                 )            \
+                                                        ),                    \
+                                            idx_2, 1, 3                       \
+                                          ),                                  \
+                                 idx_1, 1, 3                                  \
+                               )                                              \
+            ),                                                                 
+
+  curl_MV_VAL : curl_MV ( M, V ),
+  curlM_dot_V_VAL : curlM_dot_V ( M, V ),
+  McrossNABLA_dot_V_VAL : McrossNABLA_dot_V ( M, V ),
+
+  printf ( true, "~%~%Equation parts:~%~%" ),
+  printf ( true, "curl ( M * V ):~%" ),
+  print ( curl_MV_VAL ),
+  printf ( true, "~%( NABLA X M ) * V:~%" ),
+  print ( curlM_dot_V_VAL ),
+  printf ( true, "~%( M X NABLA ) * V:~%" ),
+  print ( McrossNABLA_dot_V_VAL ),
+  printf ( true, "~%Difference:~%" ),
+  print ( ( makelist ( fullratsimp ( curl_MV_VAL[idx0] - curlM_dot_V_VAL[idx0] \
+                                     + McrossNABLA_dot_V_VAL[idx0]             \
+                                   ),                                          \
+                                   idx0, 1, 3                                  \
+                     )                                                         \
+          )                                                                    \
+        ),                                                                      
+  DEBUGSTOP00 : "Result of curl ( M * V ) minus it's expansion.",
+
+  print ( "Checking if matrix is symmetric:" ),
+  E_probe : [E1, E2, E3],
+
+  for idx_0 : 1 thru 3 do
+    eval_string ( printf ( false, "declare ( E_~d, complex )", idx_0 ) ),
+/*
+  E_pump : [E_0*cos(gamma0)*cos(y)*sin(f) + %i*E_0*sin(gamma0)*cos(y)*sin(f), \
+  E_0*cos(gamma0)*cos(y)*cos(f) + %i*E_0*sin(gamma0)*cos(y)*cos(f), \
+  E_0*cos(gamma0)*sin(y) + %i*E_0*sin(gamma0)*sin(y)],
+*/
+  E_pump : [                                    \
+            E_0*exp(%i * gamma0)*cos(y)*sin(f), \
+            E_0*exp(%i * gamma0)*cos(y)*cos(f), \
+            E_0*exp(%i * gamma0)*sin(y)         \
+           ],                                    
+
+  Eprobe ( idx_ARG ) := block
+  (
+    return ( E_probe[idx_ARG] )
+  ),
+  Epump ( idx_ARG ) := block
+  (
+    return ( E_pump[idx_ARG] )
+  ),
+  ECpump ( idx_ARG ) := block
+  (
+    return ( conjugate ( E_pump[idx_ARG] ) )
+  ),
+  chi3 ( idx1, idx2, idx3, idx4 ) := block
+  (
+    local ( chi_RES ),
+
+    chi_RES : 0,
+    if ( ( idx1 = idx2 )     \
+         and ( idx2 = idx3 ) \
+         and ( idx3 = idx4 ) \
+       )                      
+    then
+      chi_RES : chi_1221 + chi_1122 + chi_1212
+    else block
+    (
+      if ( ( idx1 = idx2 )     \
+           and ( idx3 = idx4 ) \
+         )                      
+      then
+        chi_RES : chi_1122,
+      if ( ( idx1 = idx3 )     \
+           and ( idx2 = idx4 ) \
+         )                      
+      then
+        chi_RES : chi_1212,
+      if ( ( idx1 = idx4 )     \
+           and ( idx2 = idx3 ) \
+         )                      
+      then
+        chi_RES : chi_1221
+    ),
+
+    return ( chi_RES )
+  ),
+  /*
+  for idx_0 : 1 thru 6 do
+    eval_string ( printf ( false, "declare ( S_~d, complex )", idx_0 ) ),
+  */
+  /*
+  M0 : matrix (                                         \
+              [S1R+%i*S1I + eps, S4R+%i*S4I,      S5R+%i*S5I      ], \
+              [S4R-%i*S4I,       S2R+%i*S2I + eps, S6R+%i*S6I      ], \
+              [S5R-%i*S5I,      S6R-%i*S6I ,       S3R + %i*S3I + eps]  \
+             ),                                         
+             */
+             /*
+  M0 : matrix (                                         \
+              [Ss[1, 1] + eps, Ss[1, 2],       Ss[1, 3]      ], \
+              [Ss[1, 2],       Ss[2, 2] + eps, Ss[2, 3]      ], \
+              [Ss[1, 3],       Ss[2, 3],       Ss[3, 3] + eps]  \
+             ),                                         
+             */
+
+eps : 0,
+  M0 : matrix (                                         \
+              [Ss[1, 1] + eps, Ss[1, 2],       Ss[1, 3]      ], \
+              [Ss[2, 1],       Ss[2, 2] + eps, Ss[2, 3]      ], \
+              [Ss[3, 1],       Ss[3, 2],       Ss[3, 3] + eps]  \
+             ),                                         
+
+  /*
+  for idx_0 : 1 thru 3 do
+    Ss[idx_0] : sum ( sum ( sum ( chi3(idx_0, idx_1, idx_2, idx_3) \
+                                  * Eprobe(idx_1) * Epump(idx_2)   \
+                                  * ECpump(idx_3),                 \
+                                  idx_1, 1, 3                      \
+                                ),                                 \
+                            idx_2, 1, 3                            \
+                          ),                                       \
+                      idx_3, 1, 3                                  \
+                    ),                                              
+  */
+
+  for idx_0 : 1 thru 3 do
+    for idx_1 : 1 thru 3 do
+      Ss[idx_0, idx_1] : sum ( sum (  chi3(idx_0, idx_1, idx_2, idx_3) \
+                                    * Epump(idx_2)   \
+                                    * ECpump(idx_3),                 \
+                                                          \
+                                                                   \
+                              idx_2, 1, 3                            \
+                            ),                                       \
+                        idx_3, 1, 3                                  \
+                      ),                                              
+
+
+M : apply (matrix , makelist ( makelist ( fullratsimp(ev(M0[idx0, idx1])), idx1 , 1, 3 ), idx0, 1, 3 ) ),
+
+/*  M : M0,*/
+  /*
+  M : matrix (                                                  \
+              [Ss[1]/E1 + eps, Ss[1]/E2,       Ss[1]/E3      ], \
+              [Ss[1]/E2,       Ss[2]/E2 + eps, Ss[2]/E3      ], \
+              [Ss[1]/E3,       Ss[2]/E3,       Ss[3]/E3 + eps]  \
+             ),                                                  
+  M : matrix ( [Ss[1]/E1 + eps, Ss[1]/E2,       Ss[1]/E3      ], [Ss[1]/E2,       Ss[2]/E2 + eps, Ss[2]/E3      ], [Ss[1]/E3,       Ss[2]/E3,       Ss[3]/E3 + eps] ),
+
+  */
+
+
+
+  print ( "Sums of chi * E * conjugate(E)" ),
+  print ( "Sums of chi * E * conjugate(E)" ),
+  print ( "Sums of chi * E * conjugate(E)" ),
+  print ( "Sums of chi * E * conjugate(E)" ),
+  print ( "Sums of chi * E * conjugate(E)" ),
+  for idx0 : 1 thru 3 do for idx1 : 1 thru 3 do
+  print ( fullratsimp(Ss[idx0, idx1]) ),
+  DEBUGSTOP00 : "Sums of chi * E * conjugate(E)",
+  print ( "Differences between these sums" ),
+  print ( "Differences between these sums" ),
+  print ( "Differences between these sums" ),
+  print ( "Differences between these sums" ),
+  for idx0 : 1 thru 3 do for idx1 : 1 thru 3 do
+  print ( fullratsimp ( fullratsimp(Ss[idx0, idx1] + Ss[idx1, idx0]) ) ),
+  DEBUGSTOP00 : "Differences between these sums",
+
+
+  D : determinant ( M ),
+  print ( "D" ),
+  print ( "D" ),
+  print ( "D" ),
+  print ( "D" ),
+  print ( "D" ),
+  print (D),
+  DEBUGSTOP00 : "D   !!!",
+  lambdas : eigenvalues ( M ),
+  print ( "Eigenvalues of M" ),
+  print ( "Eigenvalues of M" ),
+  print ( "Eigenvalues of M" ),
+  print ( "Eigenvalues of M" ),
+  print ( fullratsimp(lambdas) ),
+  DEBUGSTOP00 : "eigenvalues of M",
+  l : length ( lambdas[2] ),
+  lambdas_prime : makelist ( fullratsimp(D / lambdas[1][idx0]), idx0, 1, l ),
+  A : transpose ( apply ( matrix, makelist ( makelist ( (-1)^(idxr + idxc)    \
+   * determinant ( minor ( M, idxr, idxc ) ), idxc, 1, 3 ), idxr, 1, 3 ) ) ),  
+  print ( "Differences between A terms" ),
+  print ( "Differences between A terms" ),
+  print ( "Differences between A terms" ),
+  print ( "Differences between A terms" ),
+  for idx0 : 1 thru 3 do for idx1 : 1 thru 3 do block (
+  print ( fullratsimp ( fullratsimp(A[idx0, idx1] - A[idx1, idx0] ) ) ), print ( "next term" )),
+  DEBUGSTOP00 : "Differences between A terms",
+
+  b : makelist ( makelist ( 0, 3 ), 3 ),
+  for idx_0 : 1 thru l do block
+  (
+    if ( lambdas[2][idx_0] = 1 )
+    then block
+    (
+      A_lambda : copymatrix ( A ),
+      A_lambda_s : matrix ( [v1, v2, v3],[v2, v5, v6],[v3, v6, v9] ),
+      for idx_1 : 1 thru 3 do
+        A_lambda[idx_1,idx_1] : A_lambda[idx_1,idx_1] - lambdas_prime[idx_0],
+      for idx_1 : 1 thru 3 do
+        A_lambda_s[idx_1,idx_1] : A_lambda_s[idx_1,idx_1] - lambda_s,
+      D_A : determinant ( A_lambda_s ),
+      dP_dlambda : sum((-1)^(idx0+idx0) * determinant ( minor ( A_lambda_s, idx0, idx0 ) ), idx0, 1, 3),
+      print ( "D_A - dP_dlambda = " ),
+      print ( "D_A - dP_dlambda = " ),
+      print ( "D_A - dP_dlambda = " ),
+      print ( "D_A - dP_dlambda = " ),
+      print ( "D_A - dP_dlambda = " ),
+      print ( fullratsimp(diff(D_A, lambda_s) + dP_dlambda) ),
+      print ( A_lambda ),
+      idx_a : -1,
+      for idx_1 : 1 thru 3 do block
+      (
+        if ( idx_a < 0 )
+        then block
+        (
+          a : determinant ( minor ( A_lambda, idx_1, idx_1 ) ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( "a=" ),
+          print ( a ),
+          if ( a # 0 )
+          then block
+          (
+            idx_a : idx_1,
+            print ( idx_a ),
+            for idx_2 : 1 thru 3 do block
+            (
+              b[idx_0][idx_2] : (-1)^( idx_1 + idx_2 ) * determinant ( minor ( A_lambda, idx_1, idx_2 ) ) / sum ( (-1)^( idx_1 + idx2 ) * determinant ( minor ( A_lambda, idx_1, idx2 ) ), idx2, 1, 3 )
+              /*b[idx_0][idx_2] : (-1)^( idx_1 + idx_2 ) * determinant ( minor ( A_lambda, idx_1, idx_2 ) ) / ((-1)^(idx_1+idx_1) * determinant ( minor ( A_lambda, idx_1, idx_1 ) ))*/
+              /*b[idx_0][idx_2] : (-1)^( idx_1 + idx_2 ) * determinant ( minor ( A_lambda, idx_1, idx_2 ) ) / sqrt(sum(((-1)^(idx_1+idx2) * determinant ( minor ( A_lambda, idx_1, idx2 ) ))^2, idx2, 1, 3))*/
+              /*b[idx_0][idx_2] : (-1)^( idx_1 + idx_2 ) * determinant ( minor ( A_lambda, idx_1, idx_2 ) )*/
+            )
+          )
+        )
+      )
+    )
+  ),
+  print ( "Checking" ),
+  print ( "Checking" ),
+  print ( "Checking" ),
+  print ( "Checking" ),
+  print ( "Checking" ),
+  print ( "Checking" ),
+  print ( "Checking" ),
+  print ( "Checking" ),
+  /*b[1][1] : 2,*/
+  b_prime : eigenvectors ( A ),
+  print ( fullratsimp(A_lambda) ),
+  for idx1 : 1 thru 3 do
+    print ( fullratsimp(sum(A_lambda[idx1,idx2] * b[1][idx2], idx2, 1, 3))),
+  b[3][1] : 0,
+  b[3][2] : E2 / ( E2 - E3 ),
+  b[3][3] : E3 / ( E3 - E2 ),
+  b[2][1] : E1 / ( E1 - E3 ),
+  b[2][2] : 0,
+  b[2][3] : E3 / ( E3 - E1 ),
+  /*
+  b[3][1] : 0,
+  b[3][2] : 1,
+  b[3][3] : - E3 / E2,
+  b[2][1] : 1,
+  b[2][2] : 0,
+  b[2][3] : - E3 / E1,
+  */
+  getMutualBasis ( B_ARG ) := block
+  (
+    local ( bMutual_RES, gMetric, idx_0, idx_1, idx_2, threeeivecs, twoeivecs, B_LIST ),
+    bMutual_RES : zeromatrix ( 3, 3 ),
+    gMetric :                            \
+     sum ( sum ( sum (                   \
+        levi_civita([idx_1,idx_2,idx_3]) \
+        * B_ARG[2,idx_1]                 \
+        * B_ARG[3,idx_2],                \
+        idx_2, 1, 3                      \
+       ),                                \
+       idx_1, 1, 3                       \
+      )                                  \
+      * B_ARG[1,idx_3],                  \
+      idx_3, 1, 3                        \
+     ),                                   
+    print ( "Scalar metric g:" ),
+    print ( fullratsimp( gMetric ) ),
+    DEBUGSTOP00 : "Scalar metric g.",
+    B_LIST : makelist ( makelist ( B_ARG[idx0,idx1], idx1, 1, 3 ), idx0, 1, 3 ),
+    for idx_0 : 1 thru 3 do block
+    (
+      threeeivecs : makelist ( B_LIST[idx_0], idx_0, 1, 3 ),
+      twoeivecs :                             \
+       delete ( B_LIST[idx_0], threeeivecs ),  
+      for idx_3 : 1 thru 3 do
+        bMutual_RES[idx_0,idx_3] : (-1)^(idx_0 + 1) \
+         * sum ( sum (                              \
+             levi_civita([idx_1,idx_2,idx_3])       \
+             * twoeivecs[1][idx_1]                  \
+             * twoeivecs[2][idx_2],                 \
+             idx_2, 1, 3                            \
+            ),                                      \
+            idx_1, 1, 3                             \
+           ) / gMetric                               
+    ),
+    return ( bMutual_RES )
+  ),
+  bp : [b_prime[2][1][1], b_prime[2][2][1], b_prime[2][2][2]],
+  eiveclistBevelNonOrt : getMutualBasis ( apply ( matrix, bp ) ),
+  print ( "eiveclistBevelNonOrt" ),
+  print ( fullratsimp ( eiveclistBevelNonOrt ) ),
+  print ( "Mutual to mutual basis" ),
+  print ( fullratsimp ( getMutualBasis ( eiveclistBevelNonOrt ) ) ),
+  print ( "Mutual to mutual basis orthogonality TEST" ),
+  print ( "Mutual to mutual basis orthogonality TEST" ),
+  print ( "Mutual to mutual basis orthogonality TEST" ),
+  print ( "Mutual to mutual basis orthogonality TEST" ),
+  print ( "Mutual to mutual basis orthogonality TEST" ),
+  print ( "Mutual to mutual basis orthogonality TEST" ),
+  print ( "Mutual to mutual basis orthogonality TEST" ),
+  DEBUGSTOP00 : "Test mutual to mutual basis",
+  delta_test : apply ( matrix, makelist ( makelist ( fullratsimp ( sum ( eiveclistBevelNonOrt[idx1,idx0] * bp[idx2][idx0], idx0, 1, 3 ) ), idx2, 1, 3 ), idx1, 1, 3 ) ),
+  print ( "Dirac delta test:" ),
+  print ( delta_test ),
+  DEBUGSTOP00 : "Dirac delta test",
+  g_res : apply ( matrix , makelist ( makelist ( fullratsimp(sum ( bp[idx0][idx2] * bp[idx1][idx2], idx2, 1, 3 )), idx1, 1, 3 ), idx0, 1, 3 ) ),
+  g_difference : makelist ( makelist ( fullratsimp(sum ( g_res[idx1,idx2] * eiveclistBevelNonOrt[idx2,idx0], idx2, 1, 3 )), idx0, 1, 3 ), idx1, 1, 3 ),
+  print ( "g_difference" ),
+  print ( "g_difference" ),
+  print ( "g_difference" ),
+  print ( "g_difference" ),
+  print ( "g_difference" ),
+  print ( g_difference ),
+  DEBUGSTOP00 : "Test difference with metric tensor g from dot product",
+
+  print ( g_res ),
+
+  DEBUGSTOP00 : "The metric tensor g from dot product",
+  print ( fullratsimp ( ratsimp(bp) ) ),
+  print ( b_prime ),
+
+  printf ( true, "~%~%~%Check if basis is orthogonal:~%" ),
+  printf ( true, "Basis of eigenvectors to it's mutual basis:~%" ),
+  print ( fullratsimp ( makelist ( makelist ( sum ( bp[idx1][idx0] * \
+  eiveclistBevelNonOrt[idx2,idx0], idx0, 1, 3 ), idx2, 1, 3 ), idx1, 1, 3 ) ) ),
+  printf ( true, "Mutual basis to itself:~%" ),
+  print ( fullratsimp ( makelist ( makelist ( sum ( \
+  eiveclistBevelNonOrt[idx1,idx0] * eiveclistBevelNonOrt[idx2,idx0], \
+  idx0, 1, 3 ), idx2, 1, 3 ), idx1, 1, 3 ) ) ),
+  printf ( true, "Basis of eigenvectors to itself:~%" ),
+  print ( fullratsimp ( makelist ( makelist ( sum ( bp[idx1][idx0] * \
+  bp[idx2][idx0], idx0, 1, 3 ), idx2, 1, 3 ), idx1, 1, 3 ) ) ),
+  printf ( true, "~%~%" ),
+  DEBUGSTOP00 : "Check if basis is orthogonal.",
+
+/*****************************************************************************/
+
+  ostream_ARG : openw ( "Chi2withChi3components.SymmetryCheck.maxima.tex" ),
+  printTexDocBGN ( ostream_ARG ),
+  printTexDocTEXT ( ostream_ARG, "$\\chi^{(2)}$ and symmetry check:" ),
+  for idx_1 : 1 thru 2 do
+    for idx_2 : 1 thru 1 do block
+    (
+      printTexExpressionInline ( ostream_ARG,                           \
+                                 fullratsimp ( ev ( M[idx_1, 2 - idx_1 + 1] * E_probe[idx_1] ) ) \
+                               )                                         
+      /*
+      printTexExpressionInline ( ostream_ARG,                              \
+                                 fullratsimp                               \
+                                 (                                         \
+                                  isolate ( expand ( ev ( M[idx_2, 1] ) ), \
+                                            chi_1221                       \
+                                          )                                \
+                                 )                                         \
+                               ),                                           
+      printTexExpressionInline ( ostream_ARG,                              \
+                                 fullratsimp                               \
+                                 (                                         \
+                                  isolate ( expand ( ev ( M[idx_2, 1] ) ), \
+                                            chi_1212                       \
+                                          )                                \
+                                 )                                         \
+                               ),                                           
+      printTexExpressionInline ( ostream_ARG,                              \
+                                 fullratsimp                               \
+                                 (                                         \
+                                  isolate ( expand ( ev ( M[idx_2, 1] ) ), \
+                                            chi_1122                       \
+                                          )                                \
+                                 )                                         \
+                               ),                                           
+      */
+      /*
+      printTexExpressionInline ( ostream_ARG,                           \
+                                 fullratsimp ( ev ( M[idx_1, idx_2] )   \
+                                               + ev ( M[idx_2, idx_1] ) \
+                                             )                          \
+                               ),                                        
+      printTexExpressionInline ( ostream_ARG,                           \
+                                 fullratsimp ( ev ( M[idx_1, idx_2] )   \
+                                               - ev ( M[idx_2, idx_1] ) \
+                                             )                          \
+                               )                                         
+      */
+    ),
+  printTexDocTEXT ( ostream_ARG, "Inverse $\\chi^{(2)}$ and symmetry check:" ),
+  for idx_1 : 1 thru 3 do
+    for idx_2 : 1 thru 3 do block
+    (
+      printTexExpressionInline ( ostream_ARG,                           \
+                                 fullratsimp ( ev ( A[idx_1, idx_2] ) ) \
+                               ),                                        
+      /*
+      printTexExpressionInline ( ostream_ARG,                              \
+                                 fullratsimp                               \
+                                 (                                         \
+                                  isolate ( expand ( ev ( A[idx_2, 1] ) ), \
+                                            chi_1221                       \
+                                          )                                \
+                                 )                                         \
+                               ),                                           
+      printTexExpressionInline ( ostream_ARG,                              \
+                                 fullratsimp                               \
+                                 (                                         \
+                                  isolate ( expand ( ev ( A[idx_2, 1] ) ), \
+                                            chi_1212                       \
+                                          )                                \
+                                 )                                         \
+                               ),                                           
+      printTexExpressionInline ( ostream_ARG,                              \
+                                 fullratsimp                               \
+                                 (                                         \
+                                  isolate ( expand ( ev ( A[idx_2, 1] ) ), \
+                                            chi_1122                       \
+                                          )                                \
+                                 )                                         \
+                               ),                                           
+      */
+      printTexExpressionInline ( ostream_ARG,                           \
+                                 fullratsimp ( ev ( A[idx_1, idx_2] )   \
+                                               + ev ( A[idx_2, idx_1] ) \
+                                             )                          \
+                               ),                                        
+      printTexExpressionInline ( ostream_ARG,                           \
+                                 fullratsimp ( ev ( A[idx_1, idx_2] )   \
+                                               - ev ( A[idx_2, idx_1] ) \
+                                             )                          \
+                               )                                         
+    ),
+
+  printTexDocEND ( ostream_ARG ),
+  close ( ostream_ARG ),
+
+  print ( fullratsimp ( ev ( M ) ) ),
+  DEBUGSTOP00 : "Reevaluated matrix M.",
+
+  return ( done )
+);
+mainr()$

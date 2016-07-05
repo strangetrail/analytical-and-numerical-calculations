@@ -1,0 +1,281 @@
+/*
+# vi:syntax=maxima
+*/
+the_main_routine() := block(
+  sprint("Inside the Main Routine now."),
+  newline(),
+
+
+
+
+
+
+
+  /*Code begins below.*/
+
+
+
+
+
+
+
+  /***************************************************************************/
+  /*                                 TYPES                                   */
+  /***************************************************************************/
+
+  defstruct (enumTransProfiles (TEM, TE, TM)),
+  etp : new ( enumTransProfiles (0, 1, 2) ),
+
+  /***************************************************************************/
+  /*^^^^^                            TYPES                              ^^^^^*/
+  /***************************************************************************/
+
+  /***************************************************************************/
+  /*                                SETTINGS                                 */
+  /***************************************************************************/
+
+  bSwitchExec2LibOnly : false,
+  bQuasiSteadyState   :  true,
+  bLaguerreSymbolic   : false,
+  bSubstituteValues   :  true,
+  bUsePolar           : false,
+  bCheckEquals        : false,
+  bDoNotEvaluateDiffs :  true,
+  bUsePump2           : false,
+  bPump1QWP           :  true,/* TODO */ /* HERE */
+  bPump2QWP           :  true,/* TODO */
+  bProbeQWP           :  true,/* TODO */
+  bIsNumericConstants :  true,/* Is w_0, k, chi_1221, chi_1122, chi_1212 an   \
+                                 arbitrary numeric constants? */
+  bSimplifyEachEquation : false,
+
+  iRotatePump1Pump2 : 0,/* 90 180 270 */ /* TODO */ /* HERE */
+  iRotatePump1Probe : 0,/* 90 180 270 */ /* TODO */
+
+  fPump2ZDisplacement : 0.0,/* TODO */ /* HERE */
+  fProbeZDisplacement : 0.0,/* TODO */
+
+  eSwitch_probe_TE2TM : etp@TEM,
+  eSwitch_pump_TE2TM  : etp@TEM,
+
+  /***************************************************************************/
+  /*^^^^^                           SETTINGS                            ^^^^^*/
+  /***************************************************************************/
+
+  /***************************************************************************/
+  /*                               CONSTANTS                                 */
+  /***************************************************************************/
+
+  wavelength : 0.63e-6,
+
+  if ( bIsNumericConstants )
+  then
+    block
+    (
+      k : (2 * %pi / wavelength),
+      w_0 : 0.1e-2,
+      chi_1chloronaphtallene : ( 1.632 * 3.04e+14 * 0.488e-6 ) / ( 4 * %pi ),
+      chi_1chloronaphtallene_diff : chi_1chloronaphtallene - chi_1chloronaphtallene * 0.05,
+      randseed : make_random_state ( true ),
+      set_random_state ( randseed ),
+      chi_1221 : chi_1chloronaphtallene_diff + chi_1chloronaphtallene * 0.1 * \
+                 ( ( random ( 100 ) ) / 100 ),
+      chi_1122 : chi_1chloronaphtallene_diff + chi_1chloronaphtallene * 0.1 * \
+                 ( ( random ( 100 ) ) / 100 ),
+      chi_1212 : chi_1chloronaphtallene_diff + chi_1chloronaphtallene * 0.1 * \
+                 ( ( random ( 100 ) ) / 100 )
+      /* HERE !!!02.01.15-22:10!!! Assign correct values for                  \
+                                   1-cloronaphtallene or anethole            */
+      /* DONE !!!02.10.15-23:10!!!                                           */
+    ),
+  /* IF ( bIsNumericConstants ) */
+
+  /***************************************************************************/
+  /*^^^^^                          CONSTANTS                            ^^^^^*/
+  /***************************************************************************/
+
+  /***************************************************************************/
+  /*                                SIMPLIFY                                 */
+  /***************************************************************************/
+
+  SAGElike_full_simplification ( expr2simplify ) := block
+  (
+
+    /* 1. Factorials */
+
+    simplified_res : minfactorial ( expr2simplify ),
+
+    /* 2. Trigonometry */
+
+    simplified_res : trigsimp ( simplified_res ),
+
+    /* 3. Rational parts */
+
+    simplified_res : ratsimp ( simplified_res ),
+
+    simplified_res : fullratsimp ( simplified_res ),
+
+    simplified_res : xthru ( simplified_res ),
+
+    /* 4. Logarithms */
+
+    simplified_res : logcontract ( simplified_res ),
+
+    /* Something else is expected here */
+
+    /* 5. Rational parts */
+
+    simplified_res : ratsimp ( simplified_res ),
+
+    simplified_res : fullratsimp ( simplified_res ),
+
+    simplified_res : xthru ( simplified_res ),
+
+    return ( simplified_res )
+
+  ),
+
+  /***************************************************************************/
+  /*^^^^^                           SIMPLIFY                            ^^^^^*/
+  /***************************************************************************/
+
+  /* x : rho * cos ( phi ), */
+  /* y : rho * sin ( phi ), */
+
+  z_r : k * w_0^2 / 2,
+
+  rho : sqrt ( x^2 + y^2 ),
+  if ( bSimplifyEachEquation and bUsePolar )
+  then
+      rho : trigsimp ( rho ),
+  /* IF ( bSimplifyEachEquation ) */
+
+  r_vector ( z_displ ) := block
+  (
+    r_vector_res : sqrt ( rho^2 + ( z + z_displ )^2 ),
+    if ( bSimplifyEachEquation )
+    then
+      r_vector_res : SAGElike_full_simplification ( r_vector_res ),
+    /* IF ( bSimplifyEachEquation ) */
+    return ( r_vector_res )
+  ),
+  /* r_vector ( z_displ ) */
+
+  /* define ( r_vector ( z_displ ), r_vector_expr ), */
+
+  f : 1 / ( k * w_0 ),
+  if ( bSimplifyEachEquation )
+  then
+    f : SAGElike_full_simplification ( f ),
+  /* IF ( bSimplifyEachEquation ) */
+
+  phi : atan ( y / x ),
+  if ( bSimplifyEachEquation )
+  then
+    phi : SAGElike_full_simplification ( phi ),
+  /* IF ( bSimplifyEachEquation ) */
+
+  /* L_ra Assotiated Laguerre polynomial should be sybolically defined here for Maxima */
+  /*funmake ( L_ra, [r_p, a_p, t_p] ),*/
+  /*L_pureSymb : L_ra ( x^2, x^2 + y^3, 3 * ( sin ( y ) ) ),*/
+  /*r_p : 1,*/
+  /*a_p : -3,*/
+  /*t_p : x^2 + y^3,*/
+  /*Lra : funmake ( L_ra, [r_p, a_p, t_p] ),*/
+  /*tmp_res : diff ( ( L_ra ( 1, -2, x^2 + y^3 ) ), y, 1 ),*/
+  /*sprint ( tmp_res ),*/
+  /*z ( x ) := 2 * atan ( x ),*/
+  depends ( t_p, [x, y, z] ),
+  depends ( a_p, [x, z] ),
+  depends ( Lra, [r_p, a_p, t_p] ),
+  /*L_ra : funmake ( Lra, [r_p, a_p, t_p] ),*/
+  tmp_result : diff ( Lra, x, 1 ),
+  sprint ( tmp_result ),
+  define ( L_ra ( t_p ), tmp_result ),
+  /*define ( L_ra_eval (t_p), tmp_result ),*/
+  newline(),
+  newline(),
+  t_p_expand : x^2 + y^3,
+  tmp_res : L_ra ( t_p_expand ),
+  sprint ( tmp_res ),
+  tmp_res3 : subst ( 'diff( Lra, t_p, 1 ), 'diff( Lra, t_p_expand, 1 ), tmp_res ),
+  tmp_res2 : ev ( tmp_res3, diff ),
+  /*nouns,*/
+  newline(),
+  newline(),
+  sprint ( tmp_res2 ),
+  /* We need customized `diff' for symbolic function names here ... */
+
+  /*
+  mydiff ( deps, arglists, differential ) := block
+  (
+    / * map ( depends, [t_p, a_p, Lra], [[x, y, z], [x, z], [r_p, a_p, t_p]] ), * /
+    map ( depends, deps, arglists ), / * should be tested * /
+    tmp_result_0 : diff ( last ( deps ), differential, 1 ),
+    / * DEBUG * /
+    sprint ( tmp_result_0 ),
+    / ********* /
+    define (  ),
+    return (  )
+  ),
+  */
+
+  /*E_TETM_comon ( radial, azimuth, z_displ ) := block
+  (*/
+    /*if ( bLaguerreSymbolic )
+    then
+      E_TETM_comon_res :                                        (
+               -(
+                 ( I^( 2*radial - azimuth + 1 ) * z_r ) /
+                 ( ( r_vector( z_displ ) )^2 * rho^2 )
+                ) *
+               (rho / ( sqrt(2) * r * f ))^azimuth *
+               __Symbolic_function_for_Assotiated_Laguerre_polynomial *
+               exp
+               (
+                I*k*( r_vector( z_displ ) ) -
+                rho^2 / ( 4 * f^2 * ( r_vector( z_displ ) )^2 )
+               ) *
+               cos( azimuth * phi )
+                                                                )
+    else
+      E_TETM_comon_res :                                                 (
+             -(
+               ( I^( 2*radial - azimuth + 1 ) * z_r ) /
+               ( ( r_vector( z_displ ) )^2 * rho^2 )
+              ) *
+             (rho / ( sqrt(2) * ( r_vector( z_displ ) ) * f ))^azimuth *
+             __Assotiated_Laguerre_polynomial *
+             exp
+             (
+              I*k*( r_vector( z_displ ) ) -
+              rho^2 / ( 4* f^2 * ( r_vector( z_displ ) )^2 )
+             ) *
+             cos( azimuth * phi )
+                                                                         ),*/
+    /* IF ( bLaguerreSymbolic ) */
+    /*if ( bSimplifyEachEquation )
+      E_TETM_comon_res : SAGElike_full_simplification ( E_TETM_comon_res ),*/
+    /* IF ( bSimplifyEachEquation ) */
+
+    /*return ( E_TETM_comon_res )*/
+  /*),*/
+  /* E_TETM_comon ( radial, azimuth, z_displ ) */
+
+
+
+
+
+
+
+  /* Code ends here. */
+
+
+
+
+
+
+
+  newline(),
+  return(done)
+)$
