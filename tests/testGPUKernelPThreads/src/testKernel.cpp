@@ -43,7 +43,7 @@ void generateRandomData(float *data, const float lowerBound, const float upperBo
 // TODO : I AM HERE. VERIFY THAT ALL SYNCRONISATIONS WORK !!! WRITE MAKEFILE FOR COMPILATION WITH PTHREADS AND PROFILER. ENSURE THAT ALL MEMORY ASSIGNMENTS HAVE CORRECT TYPES. TYPES MUST SATISFY THE SIZE OF A PARTICULAR MEMORY BLOCK, CHUNK, SLICE, ETC.
 bool runTest(int argc, char **argv)
 {
-  /* Computationsl units: */
+  /* Computational units: */
   const int blockDim = 16,
             gridDim = 2,
             maxThreads = blockDim * blockDim,// Threads per block.

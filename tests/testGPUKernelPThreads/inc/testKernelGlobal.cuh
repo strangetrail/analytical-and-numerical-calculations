@@ -173,6 +173,8 @@ __global__ void testKernel ( TestKernelArguments_t args )
 #pragma unroll 3
       for ( iiz = 0; iiz < dimz - 1/* Optimize !! */; iiz++ )
       {
+        /* TODO : I AM HERE (7.07.16) : ERROR: Out-fo-range exception in */
+        /*                                      cuda kernel!             */
         fResult = ioTile[ltidy + dimThreadsY*ltidx + dimThreadsY*dimThreadsX*iiz] + ioTile[ltidy + dimThreadsY*ltidx + dimThreadsY*dimThreadsX*(iiz + 1)/* Optimize */];
         for (;;)
         {
