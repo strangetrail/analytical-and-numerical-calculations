@@ -8,7 +8,7 @@
 
 // TODO (DONE) : FIX ANOTHER ERROR!!!                                   \
 //                Shared memory is different for 2 different streams!!!  
-extern __shared__ char memPack [];
+extern __shared__ char memPack []; /* Test: 16 * 16 * 128 bytes. */
 
 // TODO : Ensure that control stream do not wait for threads while they \
 //         are reach chunk end and only waits for slices!!! Send        \
@@ -113,29 +113,30 @@ __global__ void testKernel ( TestKernelArguments_t args )
   const int blky = blockIdx.y;
   unsigned char *deviceWaitWhileLoadingGlobalChunk =      \
                   args.deviceWaitWhileLoadingGlobalChunk;  
+  // TODO : Figure out why reference types behaves as register pointers:
   const int /*&dimx      = args.dimx,*/
             /* dimx in whole XxY blocks global memory slices !!! */
             /* e.g. slice No 1, slice No 2, ... , slice No N */
             /*&dimy      = args.dimy,*/
             /* dimy in whole XxY blocks global memory slices !!! */
-            &dimz      = args.dimz,
+            /*&*/dimz      = args.dimz,
             /* `dimz' is thread memory length in z direction !!! */
-            &dimxBlock = args.dimxBlock,
-            &dimyBlock = args.dimyBlock,
-            &dimzBlock = args.dimSlice,
-            &dimThreadsX = args.dimThreadsX,
-            &dimThreadsY = args.dimThreadsY;
+            /*&*/dimxBlock = args.dimxBlock,
+            /*&*/dimyBlock = args.dimyBlock,
+            /*&*/dimzBlock = args.dimSlice,
+            /*&*/dimThreadsX = args.dimThreadsX,
+            /*&*/dimThreadsY = args.dimThreadsY;
   // TODO : Does it correct to get by reference from struct passed as a \
   //         parameter to cuda kernel?                                   
   unsigned char *deviceGlobalRefreshFlags = args.deviceGlobalRefreshFlags;
 
-  int iz, iiz, idx_io;
+  int iz, iiz, idx_io, idx_shared;
 
   // TODO : ALIGN CODE LINES!!!
   float  fResult,
         *ioBuffer = args.buffer,
-        /* ioBuffer[dimSlice][dimxBlock][dimyBlock] */
-        /*         [dimThreadsX][dimThreadsY]       */
+        /* ioBuffer[dimSlice][(*dimxBlock)][(*dimyBlock)] */
+        /*         [dimThreadsX][dimThreadsY]             */
         *ioTile   = (float *)memPack;
         /* ioTile[dimThreadsX][dimThreadsY] */
 
@@ -154,7 +155,6 @@ __global__ void testKernel ( TestKernelArguments_t args )
 #pragma unroll 3
     for ( iz = 0; iz < dimzBlock; iz++ )
     {
-
       idx_io = iz * dimxBlock * dimyBlock * dimThreadsX * dimThreadsY \
                + blkx * dimyBlock * dimThreadsX * dimThreadsY         \
                + blky * dimThreadsX * dimThreadsY                     \
@@ -165,7 +165,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
       (                                                \
         (float *)&ioTile[ltidx * dimThreadsY + ltidy], \
         (float *)&ioBuffer[idx_io],                    \
-        dimz * sizeof(float)                           \
+        dimz * sizeof(float)                          \
       );                                                
 
       __syncthreads();
@@ -175,20 +175,26 @@ __global__ void testKernel ( TestKernelArguments_t args )
       {
         /* TODO : I AM HERE (7.07.16) : ERROR: Out-fo-range exception in */
         /*                                      cuda kernel!             */
-        fResult = ioTile[ltidy + dimThreadsY*ltidx + dimThreadsY*dimThreadsX*iiz] + ioTile[ltidy + dimThreadsY*ltidx + dimThreadsY*dimThreadsX*(iiz + 1)/* Optimize */];
+        idx_shared = dimThreadsY*dimz*ltidx \
+                     + dimz*ltidy          \
+                     + iiz;                  
+        fResult = ioTile[idx_shared]        \
+                  + ioTile[idx_shared + 1];  
         for (;;)
         {
           now = clock();
           cycles = now > start ? now - start : now + (0xffffffff - start);
           if ( cycles >= 10000 )
-          {
             break;
-          }
         }
         *global_now = now;
-        fResult *= ioTile[ltidx*dimThreadsY + ltidy + (iiz)*dimThreadsX*dimThreadsY] - ioTile[ltidx*dimThreadsY + ltidy + (iiz + 1)*dimThreadsX*dimThreadsY/* Optimize */];
+        fResult *= ioTile[idx_shared]        \
+                   - ioTile[idx_shared + 1];  
+
         __syncthreads();
-        ioTile[ltidx*dimThreadsY + ltidy + (iiz + 1)*dimThreadsX*dimThreadsY] = fResult;
+
+        ioTile[idx_shared + dimThreadsY*dimThreadsX] = fResult;
+
         __syncthreads();
       }
 
