@@ -3278,7 +3278,7 @@ else:
         print_row = 0
         for j in range(0,3):
           print_row = (print_row + u_axis[j] *
-                      simplify(auto_differenceEqTens[i][j] - differenceEqTens[i][j]))
+                      simplify(auto_differenceEqTens[i][j] - plain_wave_exp*differenceEqTens[i][j]))
         printTexExpressionInline( f, sympify( print_row ) )
       f.write( '\\text{differenceEqGamma1Tens}\n' )
       for i in range(0,3):
@@ -3298,7 +3298,7 @@ else:
         for j in range(0,3):
           print_row =                                                                            (
                       print_row + u_axis[j] *
-                      simplify(auto_differenceEqGamma1Tens[i][j] - differenceEqGamma1Tens[i][j])
+                      simplify(auto_differenceEqGamma1Tens[i][j] - plain_wave_exp*differenceEqGamma1Tens[i][j])
                                                                                                  )
         printTexExpressionInline( f, sympify( print_row ) )
       f.write( '\\text{differenceEqGamma2Tens}\n' )
@@ -3318,7 +3318,7 @@ else:
         print_row = 0
         for j in range(0,3):
           print_row = (print_row + u_axis[j] *
-                      simplify(auto_differenceEqGamma2Tens[i][j] - differenceEqGamma2Tens[i][j]))
+                      simplify(auto_differenceEqGamma2Tens[i][j] - plain_wave_exp*differenceEqGamma2Tens[i][j]))
         printTexExpressionInline( f, sympify( print_row ) )
       #
       # Reevaluating matricies A_1, A_2, B for the equation \
