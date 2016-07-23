@@ -6,9 +6,10 @@
 // TODO : move all consts to const memory.
 // (OPTIONAL. CRITICAL ONLY WITH FDTD IMPLEMENTED INSIDE KERNEL)
 
-// TODO (DONE) : FIX ANOTHER ERROR!!!                                   \
-//                Shared memory is different for 2 different streams!!!  
-extern __shared__ char memPack []; /* Test: 16 * 16 * 128 bytes. */
+// TODO : I AM HERE (17.07.16) CRITICAL : FIX ANOTHER ERROR!!!            \
+//                                         Shared memory is different for \
+//                                         2 different streams!!!          
+extern __shared__ char memPack []; /* Test: 16 * 16 * 24 bytes. */
 
 // TODO : Ensure that control stream do not wait for threads while they \
 //         are reach chunk end and only waits for slices!!! Send        \
@@ -152,31 +153,34 @@ __global__ void testKernel ( TestKernelArguments_t args )
   {
 
     // Per-block loop alongside z direction:
-#pragma unroll 3
+//#pragma unroll 3
     for ( iz = 0; iz < dimzBlock; iz++ )
     {
-      idx_io = iz * dimxBlock * dimyBlock * dimThreadsX * dimThreadsY \
-               + blkx * dimyBlock * dimThreadsX * dimThreadsY         \
-               + blky * dimThreadsX * dimThreadsY                     \
-               + ltidx * dimThreadsY                                  \
-               + ltidy;                                                
+      /* ioBuffer size is equal to                                    */
+      /*  dimSlice{4}*gridDim{2}*gridDim{2}*blockDim{16}*blockDim{16} */
+      /*  *threadSize{128}.                                           */
+      idx_io = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*dimz*iz \
+               + dimyBlock*dimThreadsX*dimThreadsY*dimz*blkx       \
+               + dimThreadsX*dimThreadsY*dimz*blky                 \
+               + dimThreadsY*dimz*ltidx                            \
+               + dimz*ltidy;                                        
 
-      memcpy                                           \
-      (                                                \
-        (float *)&ioTile[ltidx * dimThreadsY + ltidy], \
-        (float *)&ioBuffer[idx_io],                    \
-        dimz * sizeof(float)                          \
-      );                                                
+      memcpy                                                   \
+      (                                                        \
+        (float *)&ioTile[dimThreadsY*dimz*ltidx + dimz*ltidy], \
+        (float *)&ioBuffer[idx_io],                            \
+        dimz * sizeof(float)                                   \
+      );                                                        
 
       __syncthreads();
 
-#pragma unroll 3
+      /* TODO (DONE) : ERROR: Out-fo-range exception */
+      /*                       in cuda kernel!       */
+//#pragma unroll 3
       for ( iiz = 0; iiz < dimz - 1/* Optimize !! */; iiz++ )
       {
-        /* TODO : I AM HERE (7.07.16) : ERROR: Out-fo-range exception in */
-        /*                                      cuda kernel!             */
         idx_shared = dimThreadsY*dimz*ltidx \
-                     + dimz*ltidy          \
+                     + dimz*ltidy           \
                      + iiz;                  
         fResult = ioTile[idx_shared]        \
                   + ioTile[idx_shared + 1];  
@@ -193,7 +197,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
 
         __syncthreads();
 
-        ioTile[idx_shared + dimThreadsY*dimThreadsX] = fResult;
+        ioTile[idx_shared] = fResult;
 
         __syncthreads();
       }

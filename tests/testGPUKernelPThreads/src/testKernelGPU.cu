@@ -281,6 +281,12 @@ bool testGPU                            \
                       cudaHostAllocPortable \
                     )                       \
                   );// PINNED.               
+
+  checkCudaErrors ( cudaMemset ( deviceGlobalRefreshFlags,        \
+                                 0,                               \
+                                 dimxBlock * dimyBlock * dimSlice \
+                                  * dimThreadsX * dimThreadsY     \
+                  )            );                                  
   checkCudaErrors ( cudaMemset ( hostWait4RefreshGlobalSlice, \
                                  1,                           \
                                  dimSlice                     \
@@ -306,10 +312,10 @@ bool testGPU                            \
   argsCKSA.deviceGlobalRefreshFlags = deviceGlobalRefreshFlags;
 
   // Set the block size
-  dimBlock.x = 16;
-  dimBlock.y = 16;
-  dimGrid.x  = 2;
-  dimGrid.y  = 2;
+  dimBlock.x = dimThreadsX;
+  dimBlock.y = dimThreadsY;
+  dimGrid.x  = dimxBlock;
+  dimGrid.y  = dimyBlock;
   printf(" set block size to %dx%d\n", dimBlock.x, dimBlock.y);
   printf(" set grid size to %dx%d\n", dimGrid.x, dimGrid.y);
 
@@ -445,7 +451,7 @@ bool testGPU                            \
   printf("launch kernel\n");
   testKernel<<<dimGrid,                             \
                dimBlock,                            \
-               blockSize/* maxSharedMemPerBlock */, \
+               blockSize * sizeof (float)/* maxSharedMemPerBlock */, \
                streamCalc>>>                        \
             ( argsKPT );                             
 

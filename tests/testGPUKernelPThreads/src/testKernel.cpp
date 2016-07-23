@@ -44,14 +44,14 @@ void generateRandomData(float *data, const float lowerBound, const float upperBo
 bool runTest(int argc, char **argv)
 {
   /* Computational units: */
-  const int blockDim = 16,
+  const int blockDim = 2,
             gridDim = 2,
             maxThreads = blockDim * blockDim,// Threads per block.
             maxBlocks = gridDim * gridDim,
             // Threads per grid. Overall 2*2*16*16=1024 number of \
             //  resident threads per multiprocessor                
   /* Memory units: */
-            threadSize = 128,// Bytes.
+            threadSize = 24,
             dimx = blockDim,
             dimy = blockDim,
             dimz = threadSize,
