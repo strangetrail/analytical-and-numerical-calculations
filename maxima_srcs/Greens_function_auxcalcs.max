@@ -1,0 +1,38 @@
+/*
+# vi:syntax=maxima
+*/
+/* Greens_function_auxcalcs.max */
+
+
+/*  Complex polynomial determinant equation, and other auxillarily  */
+/*   calculations for dyadic Green's function evaluation.           */
+mainr() := block
+(
+	local                                              \
+	(                                                  \
+		M0, M,                                           \
+		D                                                \
+	),                                                  
+
+	M0 : matrix (         \
+	              [, , ], \
+	              [, , ], \
+	              [, , ]  \
+	            ),         
+
+	M : apply                                                          \
+	    (                                                              \
+	      matrix,                                                      \
+	      makelist ( makelist ( fullratsimp ( ev ( M0[idx0, idx1] ) ), \
+	                            idx1,                                  \
+	                            1, 3                                   \
+	                          ),                                       \
+	                 idx0,                                             \
+	                 1, 3                                              \
+	               )                                                   \
+	    ),                                                              
+	D : determinant ( M ),
+
+	return ( done )
+);
+mainr()$
