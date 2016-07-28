@@ -9,6 +9,8 @@
 // TODO : I AM HERE (17.07.16) CRITICAL : FIX ANOTHER ERROR!!!            \
 //                                         Shared memory is different for \
 //                                         2 different streams!!!          
+// TODO : I AM HERE (28.07.16) : Threads, pthreads, streams, or processes \
+//                                hangs.                                   
 extern __shared__ char memPack []; /* Test: 16 * 16 * 24 bytes. */
 
 // TODO : Ensure that control stream do not wait for threads while they \
@@ -210,7 +212,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
       // TODO (DONE) : FIX AN ERROR!!! Flags have to include both \
       //                                xy-block and z indexes.    
       // TODO (DONE) : Find out why there are only thread indices but no \
-      //                block.                                            
+      //                block's ones.                                     
       // TODO : We need control stream for synchronization with host:
       deviceGlobalRefreshFlags[idx_io] = 1;
       // 1 - ready, 0 - wait.
