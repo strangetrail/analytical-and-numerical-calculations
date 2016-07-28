@@ -1,0 +1,49 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* test.max */
+
+ddelta ( i, j ) := block
+(
+	local ( _res ),
+
+	if ( i = j )
+	then
+		return ( 0 )
+	else
+		return ( 1 )
+);
+
+mainr() := block
+(
+	local             \
+	(                 \
+	  i,              \
+	  traceless_part, \
+	  vector          \
+	),                 
+
+	traceless_part : sum ( x[thenu]*x[thenu], thenu, 1, 3 ),
+	vector : makelist ( 3/15 * x[thealpha]*x[thebeta]*x[l]                   \
+	                    - 1/15 * sum ( sum ( ddelta ( thealpha, thebeta )    \
+	                                         * traceless_part * x[l]         \
+	                                         + ddelta ( thealpha, l )        \
+	                                         * traceless_part * x[thebeta]   \
+	                                         + ddelta ( thebeta, l )         \
+	                                         * traceless_part * x[thealpha], \
+	                                         thebeta,                        \
+	                                         1, 3                            \
+	                                       ),                                \
+	                                   thealpha,                             \
+	                                   1, 3                                  \
+	                                 ),                                      \
+	                    l,                                                   \
+	                    1, 3                                                 \
+	                  ),                                                      
+	for i : 1 thru 3 do
+		printf ( true, "~%~t~%~a~%~t~%", fullratsimp ( ev ( vector[i] ) ) ),
+
+	return ( done )
+);
+mainr()$
