@@ -55,7 +55,8 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
   //         variable parameters:                                 
   for ( int idxChunk = 0; idxChunk < args.maxChunks; idxChunk++ )
   {
-    // TODO : Rename to `...Wait4Refreshing...':
+    /* STEP2 : Waiting until all slices will be reloaded. */
+    // TODO : Rename to `...WaitWhileRefreshing...':
     while ( args.hostWait4RefreshGlobalSlice[args.idxSlice] ) {}
 
     // TODO : Figure out where this should be:
@@ -65,8 +66,8 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
                     )                 );                                
     */
 
-    // TODO : Verify if this is copying stream and \
-    //         NOT calculating stream:              
+    // TODO (DONE) : Verify if this is copying stream and \
+    //                NOT calculating stream:              
     checkCudaErrors ( cudaMemcpyAsync                                 \
                       (                                               \
                         &dstBuffer[args.chunkSize * idxChunk          \
@@ -78,6 +79,8 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
                       )                                               \
                     );                                                 
 
+    /* STEP15 : Pausing sream `streamCopyH2D' while waiting each stream */
+    /*           `streamCopyD2H' copying date from device back to host. */
     checkCudaErrors ( cudaEventRecord ( eventReadWrite[args.idxSlice], \
                                         streamCopyD2H                  \
                     )                 );                                
@@ -90,10 +93,12 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
                     );                                  
 
     // 4.04.16 - fixed idxChunk to idxChunk + 1
+    /* STEP16 : Copying new data to device in specific memory location of */
+    /*           each slice.                                              */
     // TODO : Optimize two IFs below:
     if ( idxChunk < args.maxChunks - 1 )
-      // TODO : Verify if this is copying stream and \
-      //         NOT calculating stream!!!            
+      // TODO (DONE) : Verify if this is copying stream and \
+      //                NOT calculating stream!!!            
       checkCudaErrors ( cudaMemcpyAsync                                 \
                         (                                               \
                           &ioBuffer[args.sliceSize * args.idxSlice],    \
@@ -105,8 +110,8 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
                         )                                               \
                       );                                                 
     if ( idxChunk == args.maxChunks )
-      // TODO : Verify if this is copying stream and \
-      //         NOT (!!!) calculating stream:        
+      // TODO (DONE) : Verify if this is copying stream and \
+      //                NOT (!!!) calculating stream:        
       // Returning to the first chunk for another timestep:
       checkCudaErrors ( cudaMemcpyAsync                               \
                         (                                             \
@@ -118,6 +123,7 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
                         )                                             \
                       );                                               
 
+    /* STEP17 : Resetting flag to "wait" condition. */
     args.hostWait4RefreshGlobalSlice[args.idxSlice] = 1;
   }
 
@@ -145,8 +151,8 @@ bool testGPU                            \
        int dimThreadsX, int dimThreadsY \
      )                                   
 {
-  // TODO : I AM HERE - VERIFY SYNCHRONIZATION BETWEN ALL PARALLEL STREAMS, \
-  //         THREADS, PTHREADS.                                              
+  // TODO : I AM HERE - VERIFY SYNCHRONIZATION BETWEEN ALL PARALLEL STREAMS, \
+  //         THREADS, PTHREADS.                                               
   // TODO : Move all declarations to the top of the function.
 
   unsigned char *debugFlags;
@@ -171,6 +177,7 @@ bool testGPU                            \
                 *hostWait4RefreshGlobalSlice,/* array of bytes */
                 *deviceGlobalRefreshFlags,/* array of bytes */
                 *deviceWaitWhileLoadingGlobalChunk;/* byte */
+
   // TODO : Make sure that all fields in assigned structs are in right \
   //         order with variable's struct fields:                       
   // TODO : Figure out why argsCKSA does not have reference type:
@@ -299,6 +306,7 @@ bool testGPU                            \
   //         variables:                                                    
   *hostWait4RefreshingChunk_WhileLoadingSlices = 1;
   *hostWaitWhileLoadingGlobalChunk = 1;
+  *deviceWaitWhileLoadingGlobalChunk = 1;
 
   // Initialization of `argsCKSA' non-const fields:
   argsCKSA.hostWait4RefreshGlobalSlice = hostWait4RefreshGlobalSlice;
@@ -388,6 +396,7 @@ bool testGPU                            \
   for ( int idxSlice = 0; idxSlice < dimSlice; idxSlice++ )
     checkCudaErrors ( cudaEventCreate( &eventReadWrite[idxSlice] ) );
 
+  /* STEP 1 : Launching PThreads. */
   for ( int idxSlice = 0; idxSlice < dimSlice; idxSlice++ )
   {
     if ( pthread_create (                              \
@@ -445,16 +454,19 @@ bool testGPU                            \
 
   // TODO : Verify that ..... WHAT????!!!!                                \
   //         Forget to mention something here, need to figure out what...  
-  // Launch the kernel:
+  // Launching the kernel:
   printf("launch control kernel\n");
+  /* STEP3 : Launching control stream. */
   testKernelControlStream<<<1, 1, 0, streamMain>>>(argsCKSA);
   printf("launch kernel\n");
+  /* STEP5 : Launching calculation stream. */
   testKernel<<<dimGrid,                             \
                dimBlock,                            \
                blockSize * sizeof (float)/* maxSharedMemPerBlock */, \
                streamCalc>>>                        \
             ( argsKPT );                             
 
+  /* STEP7 : Setting continuation flag. */
   *bContinue = 1;
   for ( int it = 0 ; it < timesteps ; it++ )
   {
@@ -477,6 +489,7 @@ bool testGPU                            \
 
 #endif
 
+      /* STEP8 : Waiting while loading slices to reload whole chunk after. */
       // TODO : I AM HERE : Fix an error with syncronisation in main loop:
       // Waiting until control stream sets `0':
       while ( hostWait4RefreshingChunk_WhileLoadingSlices ) {}
@@ -488,6 +501,7 @@ bool testGPU                            \
 
 #endif
 
+      /* STEP20 : Resetting flag to its "wait" state. */
       // Resetting the value to `1' for the next wait cycle:
       *hostWait4RefreshingChunk_WhileLoadingSlices = 1;
 
@@ -514,8 +528,9 @@ bool testGPU                            \
 
 #endif
 
-      // Sending "continue" signal to threads through control stream:
-      *hostWaitWhileLoadingGlobalChunk = 0;
+      /* STEP21 : Sending "continue" signal to threads through control stream. */
+      if ( idxChunk < maxChunks-1 )
+        *hostWaitWhileLoadingGlobalChunk = 0;
     }
 
     // Toggle the buffers
@@ -524,8 +539,14 @@ bool testGPU                            \
     float *tmp = bufferDst;
     bufferDst = bufferSrc;
     bufferSrc = tmp;
-    *hostWaitWhileLoadingGlobalChunk = 0;
+    // TODO : I AM HERE (08.06.16) : Implement blocking operation during \
+    //                                above three lines.                  
+    // TODO : I AM HERE (07.30.16) : Fix possible error (same line as in \
+    //                                above loop):                        
+    if (it < timesteps -1 )
+      *hostWaitWhileLoadingGlobalChunk = 0;
   }
+  // TODO : I AM HERE (08.06.16) : Reset all flags properly here, before setting continue to zero to allow all pthreads, kernel threads and streams catch termination signal; execution loop should be at step 21-23 at this point.
   *bContinue = 0;
 
   //pthread_join ( pthreadKernel, NULL );

@@ -51,14 +51,15 @@ __global__ void testKernelControlStream                   \
   //  but now it's OBSOLETE.                                            
   int i, j, k, l, m, n, iGRFdevice, idx_io;
 
-  do
+  /* STEP4 : Waiting while main process sets continuation flag. */
+  while ( *(args.bContinue) )
   {
     for ( k = 0; k < args.maxChunks; k++ )
     {
       for ( l = 0; l < dimzBlock; l++ )
       {
-        for ( i = 0; i < dimxBlock; i++ )
-          for ( j = 0; j < dimyBlock; j++ )
+        for ( i = 0; i < dimxBlock; i+=iGRFdevice )
+          for ( j = 0; j < dimyBlock; j+=iGRFdevice )
             do
             {
               for ( m = 0; m < Xthreads; m++ )
@@ -72,31 +73,42 @@ __global__ void testKernelControlStream                   \
                            + m * Ythreads                        \
                            + n;                                   
 
+                  /* STEP9 : Wait until all threads in all blocks sets flags */
+                  /*          indicating that next slice can be reloaded     */
+                  /*          from host memory to device memory.             */
                   iGRFdevice = deviceGlobalRefreshFlags[idx_io];
-                  i *= iGRFdevice;// TODO : ` i = i & ( (~f ^ f) | f ); '
-                  j *= iGRFdevice;
+                  // TODO : ` i = i & ( (~f ^ f) | f ); '
                 }
               }
             }
             while ( !iGRFdevice );
 
+        /* STEP14 : Control stream sets flag telling main process that it   */
+        /*           can copy slice from the device memory to host and load */
+        /*           new data into device memory.                           */
         // `iz' or `l' - is a XxY blocks slice index in global memory:
         hostWait4RefreshGlobalSlice[l] = 0;
       }
+      /* STEP18 : Waiting until PThreads reload all slices from device to */
+      /*           host memory and load new slices to device.             */
       // TODO : This is much more optimal than overflow technique,   \
                  because it has lesser number of conditional checks:  
+      // TODO I AM HERE (07.30.16) : Test the loop below:
       for ( l = 0; l < dimzBlock; l++ )
         l *= hostWait4RefreshGlobalSlice[l];
+      /* STEP19 : Telling host process that global chunk can be reloaded. */
       *hostWait4RefreshingChunk_WhileLoadingSlices = 0;
       // TODO : Do I need to block acces to volatile host-device memory \
       //         section?? ANSWER : AT LEAST YOU NEED VOLATILE          \
       //         MODIFICATOR:                                            
+      /* STEP21 : Waiting until global chunk is reloaded. */
       while ( *hostWaitWhileLoadingGlobalChunk ) {}
+      /* STEP22 : Resetting flag to its "wait" state. */
       *hostWaitWhileLoadingGlobalChunk = 1;
+      /* STEP23 : Telling kernel threads to continue calculations. */
       *deviceWaitWhileLoadingGlobalChunk = 0;
     }
   }
-  while ( *( args.bContinue ) );
 }
 
 __global__ void testKernel ( TestKernelArguments_t args )
@@ -143,15 +155,16 @@ __global__ void testKernel ( TestKernelArguments_t args )
         *ioTile   = (float *)memPack;
         /* ioTile[dimThreadsX][dimThreadsY] */
 
-  clock_t    start      = clock(),
+  clock_t    start,
              now,
              cycles,
           * &global_now = args.global_now;
 
+  /* STEP6 : Waiting when main process sets continuation flag. */
   // TODO : Put here global loop over all global memory CHUNCKS \
   //         (index is irrelevant - host responsible for        \
   //         proper memory loading and unloading):               
-  do
+  while ( *(args.bContinue) );
   {
 
     // Per-block loop alongside z direction:
@@ -174,6 +187,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
         dimz * sizeof(float)                                   \
       );                                                        
 
+      /* STEP10 : Wait until all threads comes to this line. */
       __syncthreads();
 
       /* TODO (DONE) : ERROR: Out-fo-range exception */
@@ -186,21 +200,28 @@ __global__ void testKernel ( TestKernelArguments_t args )
                      + iiz;                  
         fResult = ioTile[idx_shared]        \
                   + ioTile[idx_shared + 1];  
+
+        start = clock ();
         for (;;)
         {
           now = clock();
           cycles = now > start ? now - start : now + (0xffffffff - start);
+          // TODO : I AM HERE (07.30.16) : Ensure that `cycles' don't cause \
+          //                                hanging.                         
           if ( cycles >= 10000 )
             break;
         }
         *global_now = now;
+
         fResult *= ioTile[idx_shared]        \
                    - ioTile[idx_shared + 1];  
 
+        /* STEP11 : Wait until all threads comes to this line. */
         __syncthreads();
 
         ioTile[idx_shared] = fResult;
 
+        /* STEP12 : Wait until all threads comes to this line. */
         __syncthreads();
       }
 
@@ -209,6 +230,8 @@ __global__ void testKernel ( TestKernelArguments_t args )
                dimzBlock * sizeof(float)                      \
              );                                                
 
+      /* STEP13 : Thread sets its flag indicating that it completes */
+      /*           evaluating its part of current slice.            */
       // TODO (DONE) : FIX AN ERROR!!! Flags have to include both \
       //                                xy-block and z indexes.    
       // TODO (DONE) : Find out why there are only thread indices but no \
@@ -221,14 +244,18 @@ __global__ void testKernel ( TestKernelArguments_t args )
 
     __syncthreads();
 
+    /* STEP24 : Waiting for new slices. */
     while ( *deviceWaitWhileLoadingGlobalChunk ) {}
     // ???????????? TODO : how to reset???
 
+    /* STEP25 : Wait until all threads comes to this line. */
     __syncthreads();//???? TODO : remove??? __syncthreads()
 
+    /* STEP26 : Resetting flag to its "wait" state. */
     *deviceWaitWhileLoadingGlobalChunk = __any(1);
 
-    // TODO : Verify if this reset works properly.
+    /* STEP27 : Resetting flag to its "wait" state. */
+    // TODO : ERROR : Verify if this reset works properly.
     for ( iz = 0 ; iz < dimz ; iz++ )
       deviceGlobalRefreshFlags[gtidx * dimThreadsY + gtidy] = 0;
       // 1 - ready, 0 - wait
@@ -236,7 +263,6 @@ __global__ void testKernel ( TestKernelArguments_t args )
     //Stop and wait here in GLOBAL loop for new CHUNK \
     // (synchronize with host)                         
   }
-  while ( *( args.bContinue ) );
   // TODO : Verify repeat-until behavior in c++.
 
 }
