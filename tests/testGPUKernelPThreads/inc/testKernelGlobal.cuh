@@ -52,6 +52,7 @@ __global__ void testKernelControlStream                   \
   int i, j, k, l, m, n, iGRFdevice, idx_io;
 
   /* STEP4 : Waiting while main process sets continuation flag. */
+  // TODO : Use loop with timesteps instead of bContinue flag:
   while ( *(args.bContinue) )
   {
     for ( k = 0; k < args.maxChunks; k++ )
@@ -161,6 +162,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
           * &global_now = args.global_now;
 
   /* STEP6 : Waiting when main process sets continuation flag. */
+  // TODO : Use loop with timesteps instead of bContinue flag:
   // TODO : Put here global loop over all global memory CHUNCKS \
   //         (index is irrelevant - host responsible for        \
   //         proper memory loading and unloading):               
@@ -263,7 +265,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
     //Stop and wait here in GLOBAL loop for new CHUNK \
     // (synchronize with host)                         
   }
-  // TODO : Verify repeat-until behavior in c++.
+  // TODO (DONE) : Verify repeat-until behavior in c++.
 
 }
 

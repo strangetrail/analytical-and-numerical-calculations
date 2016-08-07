@@ -539,15 +539,19 @@ bool testGPU                            \
     float *tmp = bufferDst;
     bufferDst = bufferSrc;
     bufferSrc = tmp;
-    // TODO : I AM HERE (08.06.16) : Implement blocking operation during \
-    //                                above three lines.                  
-    // TODO : I AM HERE (07.30.16) : Fix possible error (same line as in \
-    //                                above loop):                        
+    // TODO (DONE) : Implement blocking operation during above three lines.
+
+    /* STEP21 : Sending "continue" signal to threads through control stream. */
+    // TODO (DONE) : Fix possible error (same line as in above loop):
     if (it < timesteps -1 )
       *hostWaitWhileLoadingGlobalChunk = 0;
   }
-  // TODO : I AM HERE (08.06.16) : Reset all flags properly here, before setting continue to zero to allow all pthreads, kernel threads and streams catch termination signal; execution loop should be at step 21-23 at this point.
+  // TODO (DONE) : Reset all flags properly here, before setting `bContinue' \
+  //                to zero to allow all pthreads, kernel threads and        \
+  //                streams catch termination signal; execution loop should  \
+  //                be at step 21-23 at this point.                           
   *bContinue = 0;
+  *hostWaitWhileLoadingGlobalChunk = 0;
 
   //pthread_join ( pthreadKernel, NULL );
 
