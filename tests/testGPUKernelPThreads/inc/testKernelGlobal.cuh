@@ -90,6 +90,7 @@ __global__ void testKernelControlStream                   \
         // `iz' or `l' - is a XxY blocks slice index in global memory:
         hostWait4RefreshGlobalSlice[l] = 0;
       }
+
       /* STEP18 : Waiting until PThreads reload all slices from device to */
       /*           host memory and load new slices to device.             */
       // TODO : This is much more optimal than overflow technique,   \
@@ -97,17 +98,28 @@ __global__ void testKernelControlStream                   \
       // TODO I AM HERE (07.30.16) : Test the loop below:
       for ( l = 0; l < dimzBlock; l++ )
         l *= hostWait4RefreshGlobalSlice[l];
-      /* STEP19 : Telling host process that global chunk can be reloaded. */
+
+      /* STEP19 : Telling host process that global chunk can be reloaded, */
+      /*           evaluated, updated, etc.                               */
       *hostWait4RefreshingChunk_WhileLoadingSlices = 0;
+
       // TODO : Do I need to block acces to volatile host-device memory \
       //         section?? ANSWER : AT LEAST YOU NEED VOLATILE          \
       //         MODIFICATOR:                                            
       /* STEP21 : Waiting until global chunk is reloaded. */
       while ( *hostWaitWhileLoadingGlobalChunk ) {}
+
       /* STEP22 : Resetting flag to its "wait" state. */
       *hostWaitWhileLoadingGlobalChunk = 1;
+
       /* STEP23 : Telling kernel threads to continue calculations. */
       *deviceWaitWhileLoadingGlobalChunk = 0;
+
+      /* STEP28 : Wait for first kernel thread reached the line telling   */
+      /*           others that all flags, indicating that specific global */
+      /*           memory part needs to be updated in shared memory, have */
+      /*           been reset for all particular blocks and threads.      */
+      while ( !(*deviceWaitWhileLoadingGlobalChunk) ) {}
     }
   }
 }
@@ -117,34 +129,37 @@ __global__ void testKernel ( TestKernelArguments_t args )
   /*
   extern __shared__ float tile [];
   */
-
   // TODO : Remove extra `const':
-  const int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
   // TODO : Optimize!!!
-  const int gtidy = blockIdx.y * blockDim.y + threadIdx.y;
-  // TODO : Optimize!!!
-  const int ltidx = threadIdx.x;
-  const int ltidy = threadIdx.y;
-  const int blkx = blockIdx.x;
-  const int blky = blockIdx.y;
+  const int gtidx = blockIdx.x * blockDim.x + threadIdx.x,
+            gtidy = blockIdx.y * blockDim.y + threadIdx.y,
+            ltidx = threadIdx.x,
+            ltidy = threadIdx.y,
+            blkx  = blockIdx.x,
+            blky  = blockIdx.y;
+  // TODO : Does it correct to get values by reference from struct \
+  //         that passed as a parameter to cuda kernel?             
   unsigned char *deviceWaitWhileLoadingGlobalChunk =      \
-                  args.deviceWaitWhileLoadingGlobalChunk;  
-  // TODO : Figure out why reference types behaves as register pointers:
-  const int /*&dimx      = args.dimx,*/
-            /* dimx in whole XxY blocks global memory slices !!! */
-            /* e.g. slice No 1, slice No 2, ... , slice No N */
-            /*&dimy      = args.dimy,*/
+                  args.deviceWaitWhileLoadingGlobalChunk,  
+                *deviceGlobalRefreshFlags = args.deviceGlobalRefreshFlags;
+  // TODO (IMPORTANT and INTERESTING) : Figure out why reference types \
+  //                                     behaves as register pointers  \
+  //                                     in CUDA:                       
+  const int /*&dimx          = args.dimx,*/
+            /* `dimx' is whole XxY blocks global memory slices !!! */
+            /*  e.g. slice No 1, slice No 2, ... , slice No N.     */
+            /*&dimy          = args.dimy,*/
             /* dimy in whole XxY blocks global memory slices !!! */
-            /*&*/dimz      = args.dimz,
-            /* `dimz' is thread memory length in z direction !!! */
-            /*&*/dimxBlock = args.dimxBlock,
-            /*&*/dimyBlock = args.dimyBlock,
-            /*&*/dimzBlock = args.dimSlice,
+            /*&*/dimz        = args.dimz,
+            /* `dimz' is a thread memory length in z direction !!! */
+            /*&*/dimxBlock   = args.dimxBlock,
+            /*&*/dimyBlock   = args.dimyBlock,
+            /* `dimxBlock' and `dimyBlock' is a length of grid in blocks */
+            /*  alongside x and y direction respectively.                */
+            /*&*/dimzBlock   = args.dimSlice,
+            /* `dimzBlock' is a number of slices per chunk. */
             /*&*/dimThreadsX = args.dimThreadsX,
             /*&*/dimThreadsY = args.dimThreadsY;
-  // TODO : Does it correct to get by reference from struct passed as a \
-  //         parameter to cuda kernel?                                   
-  unsigned char *deviceGlobalRefreshFlags = args.deviceGlobalRefreshFlags;
 
   int iz, iiz, idx_io, idx_shared;
 
@@ -235,10 +250,10 @@ __global__ void testKernel ( TestKernelArguments_t args )
       /* STEP13 : Thread sets its flag indicating that it completes */
       /*           evaluating its part of current slice.            */
       // TODO (DONE) : FIX AN ERROR!!! Flags have to include both \
-      //                                xy-block and z indexes.    
+      //                                xy-block and z indexes:    
       // TODO (DONE) : Find out why there are only thread indices but no \
-      //                block's ones.                                     
-      // TODO : We need control stream for synchronization with host:
+      //                block's ones:                                     
+      // TODO (DONE) : We need control stream for synchronization with host:
       deviceGlobalRefreshFlags[idx_io] = 1;
       // 1 - ready, 0 - wait.
 
@@ -247,20 +262,21 @@ __global__ void testKernel ( TestKernelArguments_t args )
     __syncthreads();
 
     /* STEP24 : Waiting for new slices. */
+    // TODO : How to reset???
     while ( *deviceWaitWhileLoadingGlobalChunk ) {}
-    // ???????????? TODO : how to reset???
 
-    /* STEP25 : Wait until all threads comes to this line. */
+    /* STEP25 : Resetting flag to its "wait" state. */
+    // TODO : (DONE) : ERROR (FIXED) : Verify if this reset works \
+    //                                  properly.                  
+    for ( iz = 0 ; iz < dimz ; iz++ )
+      // 1 - ready, 0 - wait:
+      deviceGlobalRefreshFlags[dimThreadsY*gtidx + gtidy] = 0;
+
+    /* STEP26 : Wait until all threads comes to this line. */
     __syncthreads();//???? TODO : remove??? __syncthreads()
 
-    /* STEP26 : Resetting flag to its "wait" state. */
-    *deviceWaitWhileLoadingGlobalChunk = __any(1);
-
     /* STEP27 : Resetting flag to its "wait" state. */
-    // TODO : ERROR : Verify if this reset works properly.
-    for ( iz = 0 ; iz < dimz ; iz++ )
-      deviceGlobalRefreshFlags[gtidx * dimThreadsY + gtidy] = 0;
-      // 1 - ready, 0 - wait
+    *deviceWaitWhileLoadingGlobalChunk = __any(1);
 
     //Stop and wait here in GLOBAL loop for new CHUNK \
     // (synchronize with host)                         

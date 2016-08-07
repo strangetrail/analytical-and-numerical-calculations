@@ -501,11 +501,11 @@ bool testGPU                            \
 
 #endif
 
-      /* STEP20 : Resetting flag to its "wait" state. */
-      // Resetting the value to `1' for the next wait cycle:
+      /* STEP20 : Resetting flag to its "wait" state */
+      /*           for the next wait cycle.          */
       *hostWait4RefreshingChunk_WhileLoadingSlices = 1;
 
-      // TODO : Look's like this is unnecessary!
+      // TODO : It looks like the line below is unnecessary!
       /*
       checkCudaErrors                                            \
       (                                                          \
@@ -528,18 +528,19 @@ bool testGPU                            \
 
 #endif
 
-      /* STEP21 : Sending "continue" signal to threads through control stream. */
+      /* STEP21 : Sending "continue" signal to kernel threads */
+      /*           through control stream.                    */
       if ( idxChunk < maxChunks-1 )
         *hostWaitWhileLoadingGlobalChunk = 0;
     }
 
-    // Toggle the buffers
-    // Visual Studio 2005 does not like std::swap
-    //    std::swap<float *>(bufferSrc, bufferDst);
+    // TODO (DONE) : Implement blocking operation during below three lines:
+    // Toggle the buffers                           \
+    //  Visual Studio 2005 does not like std::swap  \
+    //  `std::swap<float *>(bufferSrc, bufferDst);'  
     float *tmp = bufferDst;
     bufferDst = bufferSrc;
     bufferSrc = tmp;
-    // TODO (DONE) : Implement blocking operation during above three lines.
 
     /* STEP21 : Sending "continue" signal to threads through control stream. */
     // TODO (DONE) : Fix possible error (same line as in above loop):
@@ -549,7 +550,7 @@ bool testGPU                            \
   // TODO (DONE) : Reset all flags properly here, before setting `bContinue' \
   //                to zero to allow all pthreads, kernel threads and        \
   //                streams catch termination signal; execution loop should  \
-  //                be at step 21-23 at this point.                           
+  //                be at steps 21-23 at this execution point.                
   *bContinue = 0;
   *hostWaitWhileLoadingGlobalChunk = 0;
 
