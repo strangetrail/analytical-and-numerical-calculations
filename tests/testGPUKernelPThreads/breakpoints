@@ -1,0 +1,127 @@
+#!/bin/bash
+# TODO (DONE) : TEST THIS!
+function from_source2debugger ()
+{
+	read GREP_OUT <<< $( grep -m 1 -n -H                                         \
+	                          "\(^b()$\)\|\(^b(.\+)$\)\|\(^B(.\+)$\)\|\(^B()$\)" \
+	                          "$1"                                               \
+	                   ) ;                                                        
+
+	if [[ "$GREP_OUT" != "" ]] ;
+	then
+		for (( idx=1; idx != 0 ; idx=idx )) ;
+		do
+			echo $PWD/"$GREP_OUT"                                                       \
+			  | sed -r 's/^(.+)(:[0-9]+):b\(\)$/bbreak \1\2/g'                          \
+			  | sed -r 's/^(.+)(:[0-9]+):b\((.+)\)$/bbreak \1\2  condition $bpnum \3/g' \
+			  | sed -r 's/^(.+)(:[0-9]+):B\((.+)\)$/break \1\2  condition $bpnum \3/g'  \
+			  | sed -r 's/^(.+)(:[0-9]+):B\(\)$/break \1\2/g'                           \
+			  >> saved.txt ;                                                             
+
+			sed -i.bak -r '0,/((^b\(\)$)|(^b\(.+\)$)|(^B\(.+\)$)|(^B\(\)$))/ s/((^b\(\)$)|(^b\(.+\)$)|(^B\(.+\)$)|(^B\(\)$))/\/\/_____\1/' "$1" ;
+			sed -i.bak -r '/^\/\/_____((b\(\))|(b\(.+\))|(B\(.+\))|(B\(\)))$/d' "$1" ;
+
+			read GREP_OUT <<< $( grep -m 1 -n -H                                         \
+			                          "\(^b()$\)\|\(^b(.\+)$\)\|\(^B(.\+)$\)\|\(^B()$\)" \
+			                          "$1"                                               \
+			                   ) ;                                                        
+			if [[ "$GREP_OUT" == "" ]] ;
+			then
+				idx=0 ;
+			fi ;
+		done ;
+	fi ;
+}
+
+export -f from_source2debugger ;
+
+if [[ "$1" == "s2d" ]] ;
+then
+	echo -n "" > saved.txt ;
+
+	find inc_test/ -type f -print                                           \
+	  | grep "\.cuh$\|\.h$\|\.hpp$"                                    \
+	  | xargs -n 1 -d '\n' -I {} bash -c 'from_source2debugger "{}"' ;  
+	find src_test/ -type f -print                                           \
+	  | grep "\.cu$\|\.c$\|\.cpp$"                                     \
+	  | xargs -n 1 -d '\n' -I {} bash -c 'from_source2debugger "{}"' ;  
+
+	rm -f inc_test/*.bak ;
+	rm -f src_test/*.bak ;
+
+	cat saved.txt                                     \
+	  | grep "^bb"                                    \
+	  | sed -r 's/^bb(.+)/b\1/g'                      \
+	  | sed -r 's/^(.+)(\s\scondition\s.+)$/\1\n\2/g' \
+	  > saved_breakpoints.txt ;                        
+	echo "disable" >> saved_breakpoints.txt ;
+	cat saved.txt                                     \
+	  | grep -v "^bb"                                 \
+	  | sed -r 's/^(.+)(\s\scondition\s.+)$/\1\n\2/g' \
+	  >> saved_breakpoints.txt ;                       
+	rm -f saved.txt ;
+else
+	DISABLED=true ;
+	bpfilename="saved_breakpoints.txt" ;
+	bpfile="saved.txt" ;
+	STARTSWITHSPACES="" ;
+	echo -n "" > $bpfile ;
+	while IFS='' read -r line || [[ -n "$line" ]]
+	do
+		read STARTSWITHSPACES <<< $( echo "$line" | grep "^\s\+" ) ;
+
+		if [[ "$line" == "disable" ]] ;
+		then
+			DISABLED=false ;
+		else
+			if ( $DISABLED ) ;
+			then
+				if [[ "$STARTSWITHSPACES" == "" ]] ;
+				then
+					printf "\n$line"" disable" >> $bpfile ;
+				else
+					printf "$line""\n" >> $bpfile ;
+				fi ;
+			else
+				if [[ "$STARTSWITHSPACES" == "" ]] ;
+				then
+					printf "\n$line" >> $bpfile ;
+				else
+					printf "$line""\n" >> $bpfile ;
+				fi ;
+			fi ;
+		fi ;
+
+		STARTSWITHSPACES="" ;
+	done <"$bpfilename"
+
+	# TODO : FIX AN ERROR ! Implement correct sorting:
+	sort -t ':' -r saved.txt -o saved.txt ;
+
+	while IFS='' read -r line || [[ -n "$line" ]]
+	do
+		if [[ "$line" != "" ]]
+		then
+			read SRCFILENAME <<< $( echo "$line"                                \
+			                        | sed -r 's/(^break\s+)|(:[0-9]+\s*.*$)//g' \
+			                      ) ;                                            
+			read STRNUMBER <<< $( echo "$line"                        \
+			                      | sed -r 's/^.+:([0-9]+)\s*.*/\1/g' \
+			                    ) ;                                    
+			read CONDITIONS <<< $( echo "$line" \
+			                       | grep "\s\scondition\s" \
+			                       | sed -r 's/^break\s+.+:[0-9]+(\sdisable)?(\s+condition\s\$bpnum\s)(.+)$/\3/g' \
+			                     ) ;
+			read DISABLEDSTATE <<< $( echo "$line" | grep " disable" ) ;
+
+			if [[ "$DISABLEDSTATE" != "" ]] ;
+			then
+				sed -i $STRNUMBER"ib(""$CONDITIONS"")" $SRCFILENAME ;
+			else
+				sed -i $STRNUMBER"iB(""$CONDITIONS"")" $SRCFILENAME ;
+			fi ;
+		fi ;
+	done <"$bpfile"
+
+	#rm -f $bpfile ;
+fi ;
