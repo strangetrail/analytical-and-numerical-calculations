@@ -3,13 +3,6 @@
 #ifndef _TESTKERNELGLOBAL_CUH_
 #define _TESTKERNELGLOBAL_CUH_
 
-#ifndef B
-#define B(COND)
-#endif
-#ifndef b
-#define b(COND)
-#endif
-
 
 // TODO : move all consts to const memory.
 // (OPTIONAL. CRITICAL ONLY WITH FDTD IMPLEMENTED INSIDE KERNEL)
@@ -85,7 +78,6 @@ __global__ void testKernelControlStream                   \
                   /* STEP9 : Wait until all threads in all blocks sets flags */
                   /*          indicating that next slice can be reloaded     */
                   /*          from host memory to device memory.             */
-b()
                   iGRFdevice = deviceGlobalRefreshFlags[idx_io];
                   // TODO : ` i = i & ( (~f ^ f) | f ); '
                 }
@@ -97,7 +89,6 @@ b()
         /*           can copy slice from the device memory to host and load */
         /*           new data into device memory.                           */
         // `iz' or `l' - is a XxY blocks slice index in global memory:
-B()
         hostWait4RefreshGlobalSlice[l] = 0;
       }
 
@@ -107,27 +98,22 @@ B()
                  because it has lesser number of conditional checks:  
       // TODO I AM HERE (07.30.16) : Test the loop below:
       for ( l = 0; l < dimzBlock; l++ )
-b()
         l *= hostWait4RefreshGlobalSlice[l];
 
       /* STEP19 : Telling host process that global chunk can be reloaded, */
       /*           evaluated, updated, etc.                               */
-B()
       *hostWait4RefreshingChunk_WhileLoadingSlices = 0;
 
       // TODO : Do I need to block acces to volatile host-device memory \
       //         section?? ANSWER : AT LEAST YOU NEED VOLATILE          \
       //         MODIFICATOR:                                            
       /* STEP21 : Waiting until global chunk is reloaded. */
-b()
       while ( *hostWaitWhileLoadingGlobalChunk ) {}
 
       /* STEP22 : Resetting flag to its "wait" state. */
-B()
       *hostWaitWhileLoadingGlobalChunk = 1;
 
       /* STEP23 : Telling kernel threads to continue calculations. */
-B()
       *deviceWaitWhileLoadingGlobalChunk = 0;
 
       /* STEP28 : Wait for first kernel thread reached the line telling   */
@@ -220,7 +206,6 @@ __global__ void testKernel ( TestKernelArguments_t args )
       );                                                        
 
       /* STEP10 : Wait until all threads comes to this line. */
-B()
       __syncthreads();
 
       /* TODO (DONE) : ERROR: Out-fo-range exception */
@@ -250,13 +235,11 @@ B()
                    - ioTile[idx_shared + 1];  
 
         /* STEP11 : Wait until all threads comes to this line. */
-B()
         __syncthreads();
 
         ioTile[idx_shared] = fResult;
 
         /* STEP12 : Wait until all threads comes to this line. */
-B()
         __syncthreads();
       }
 
@@ -272,13 +255,11 @@ B()
       // TODO (DONE) : Find out why there are only thread indices but no \
       //                block's ones:                                     
       // TODO (DONE) : We need control stream for synchronization with host:
-B()
       deviceGlobalRefreshFlags[idx_io] = 1;
       // 1 - ready, 0 - wait.
 
     }
 
-B()
     __syncthreads();
 
     /* STEP24 : Waiting for new slices. */
@@ -290,15 +271,12 @@ B()
     //                                  properly.                  
     for ( iz = 0 ; iz < dimz ; iz++ )
       // 1 - ready, 0 - wait:
-b()
       deviceGlobalRefreshFlags[dimThreadsY*gtidx + gtidy] = 0;
 
     /* STEP26 : Wait until all threads comes to this line. */
-B()
     __syncthreads();//???? TODO : remove??? __syncthreads()
 
     /* STEP27 : Resetting flag to its "wait" state. */
-B()
     *deviceWaitWhileLoadingGlobalChunk = __any(1);
 
     //Stop and wait here in GLOBAL loop for new CHUNK \

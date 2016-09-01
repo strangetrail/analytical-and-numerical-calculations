@@ -1,5 +1,4 @@
 #!/bin/bash
-# TODO (DONE) : TEST THIS!
 function from_source2debugger ()
 {
 	read GREP_OUT <<< $( grep -m 1 -n -H                                         \
@@ -39,15 +38,15 @@ if [[ "$1" == "s2d" ]] ;
 then
 	echo -n "" > saved.txt ;
 
-	find inc_test/ -type f -print                                      \
+	find inc/ -type f -print                                           \
 	  | grep "\.cuh$\|\.h$\|\.hpp$"                                    \
 	  | xargs -n 1 -d '\n' -I {} bash -c 'from_source2debugger "{}"' ;  
-	find src_test/ -type f -print                                      \
+	find src/ -type f -print                                           \
 	  | grep "\.cu$\|\.c$\|\.cpp$"                                     \
 	  | xargs -n 1 -d '\n' -I {} bash -c 'from_source2debugger "{}"' ;  
 
-	rm -f inc_test/*.bak ;
-	rm -f src_test/*.bak ;
+	rm -f inc/*.bak ;
+	rm -f src/*.bak ;
 
 	cat saved.txt                                     \
 	  | grep "^bb"                                    \
@@ -96,7 +95,6 @@ else
 		STARTSWITHSPACES="" ;
 	done <"$bpfilename"
 
-	# TODO (DONE) : FIX AN ERROR ! Implement correct sorting:
 	cat saved.txt                                    \
 	  | sed -r 's/:([0-9]+)/ \1/g'                   \
 	  > saved_sorted.txt ;                            
@@ -130,6 +128,6 @@ else
 		fi ;
 	done <"$bpfile"
 
-	#rm -f $bpfile ;
-	#rm -f $bpfile_sorted ;
+	rm -f $bpfile ;
+	rm -f $bpfile_sorted ;
 fi ;
