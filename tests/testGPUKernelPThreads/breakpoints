@@ -39,10 +39,10 @@ if [[ "$1" == "s2d" ]] ;
 then
 	echo -n "" > saved.txt ;
 
-	find inc_test/ -type f -print                                           \
+	find inc_test/ -type f -print                                      \
 	  | grep "\.cuh$\|\.h$\|\.hpp$"                                    \
 	  | xargs -n 1 -d '\n' -I {} bash -c 'from_source2debugger "{}"' ;  
-	find src_test/ -type f -print                                           \
+	find src_test/ -type f -print                                      \
 	  | grep "\.cu$\|\.c$\|\.cpp$"                                     \
 	  | xargs -n 1 -d '\n' -I {} bash -c 'from_source2debugger "{}"' ;  
 
@@ -64,6 +64,7 @@ else
 	DISABLED=true ;
 	bpfilename="saved_breakpoints.txt" ;
 	bpfile="saved.txt" ;
+	bpfile_sorted="saved_sorted.txt" ;
 	STARTSWITHSPACES="" ;
 	echo -n "" > $bpfile ;
 	while IFS='' read -r line || [[ -n "$line" ]]
@@ -95,8 +96,14 @@ else
 		STARTSWITHSPACES="" ;
 	done <"$bpfilename"
 
-	# TODO : FIX AN ERROR ! Implement correct sorting:
-	sort -t ':' -r saved.txt -o saved.txt ;
+	# TODO (DONE) : FIX AN ERROR ! Implement correct sorting:
+	cat saved.txt                                    \
+	  | sed -r 's/:([0-9]+)/ \1/g'                   \
+	  > saved_sorted.txt ;                            
+	sort -k 3rn,3 saved_sorted.txt -o saved_sorted.txt ;
+	cat saved_sorted.txt                             \
+	  | sed -r 's/^(break\s[^ ]+)\s([0-9]+)/\1:\2/g' \
+	  > saved.txt ;                                   
 
 	while IFS='' read -r line || [[ -n "$line" ]]
 	do
@@ -124,4 +131,5 @@ else
 	done <"$bpfile"
 
 	#rm -f $bpfile ;
+	#rm -f $bpfile_sorted ;
 fi ;
