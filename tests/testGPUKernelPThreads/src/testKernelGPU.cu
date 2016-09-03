@@ -55,7 +55,7 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
   //         variable parameters:                                 
   for ( int idxChunk = 0; idxChunk < args.maxChunks; idxChunk++ )
   {
-    /* STEP2 : Waiting until all slices will be reloaded. */
+    /* STEP2 : Waiting until current slice will be reloaded. */
     // TODO : Rename to `...WaitWhileRefreshing...':
     while ( args.hostWait4RefreshGlobalSlice[args.idxSlice] ) {}
 
@@ -297,10 +297,7 @@ bool testGPU                            \
   checkCudaErrors ( cudaMemset ( deviceWaitWhileLoadingGlobalChunk, \
                                  1, 1                               \
                   )            );                                    
-  checkCudaErrors ( cudaMemset ( hostWait4RefreshGlobalSlice, \
-                                 1,                           \
-                                 dimSlice                     \
-                  )            );                              
+  memset ( hostWait4RefreshGlobalSlice, 1, dimSlice );
   // TODO : Ensure that `0' stands for "not waiting" and also that we need\
   //         "not waiting" state from the begining of program execution in\
   //         `hostWait4RefreshingChunk_WhileLoadingSlices'                \
@@ -309,6 +306,7 @@ bool testGPU                            \
   //         variables:                                                    
   *hostWait4RefreshingChunk_WhileLoadingSlices = 1;
   *hostWaitWhileLoadingGlobalChunk = 1;
+  *bContinue = 0;
 
   // Initialization of `argsCKSA' non-const fields:
   argsCKSA.hostWait4RefreshGlobalSlice = hostWait4RefreshGlobalSlice;
@@ -437,11 +435,11 @@ bool testGPU                            \
 
 #endif
 
-    // EXPLANATION.                                                    \
-    // Q : Why not just reassign member variable?                      \
-    // A : Because we need different structures for initialization of  \
-    //      pthreads, and pthread_create do not accept it's parameters \
-    //      argument-wise.                                              
+    // EXPLANATION.                                                   \
+    // Q : Why not just reassign member variable?                     \
+    // A : Because we need different structures for initialization of \
+    //      pthreads, and pthread_create do not accept its parameters \
+    //      argument-wise.                                             
   }
 
 #ifdef DEBUG_INFO
@@ -491,10 +489,14 @@ bool testGPU                            \
 
 #endif
 
-      /* STEP8 : Waiting while loading slices to reload whole chunk after. */
-      // TODO : I AM HERE : Fix an error with syncronisation in main loop:
+      /* STEP8 : Waiting while loading slices       */
+      /*          to reload whole chunk after that. */
+      // TODO : I AM HERE (09.03.16) : FIX AN ERROR with syncronisation      \
+      //                                in main loop - steps 2, 8, 9, and 24 \
+      //                                conflict with each other             \
+      //                                and process hangs:                    
       // Waiting until control stream sets `0':
-      while ( hostWait4RefreshingChunk_WhileLoadingSlices ) {}
+      while ( *hostWait4RefreshingChunk_WhileLoadingSlices ) {}
 
 #ifdef DEBUG_INFO
 

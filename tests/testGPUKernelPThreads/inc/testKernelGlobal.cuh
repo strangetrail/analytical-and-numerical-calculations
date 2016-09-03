@@ -53,7 +53,11 @@ __global__ void testKernelControlStream                   \
   int i, j, k, l, m, n, iGRFdevice, idx_io;
 
   /* STEP4 : Waiting while main process sets continuation flag. */
+  // TODO I AM HERE (09.03.16) : FIX AN ERROR : Implement an empty loop     \
+  //                                             that waits for `bContinue' \
+  //                                             flag:                       
   // TODO : Use loop with timesteps instead of bContinue flag:
+  while ( !*(args.bContinue) ) {}
   while ( *(args.bContinue) )
   {
     for ( k = 0; k < args.maxChunks; k++ )
@@ -64,6 +68,7 @@ __global__ void testKernelControlStream                   \
           for ( j = 0; j < dimyBlock; j+=iGRFdevice )
             do
             {
+              iGRFdevice = 1;
               for ( m = 0; m < Xthreads; m++ )
               {
                 for ( n = 0; n < Ythreads; n++ )
@@ -78,7 +83,7 @@ __global__ void testKernelControlStream                   \
                   /* STEP9 : Wait until all threads in all blocks sets flags */
                   /*          indicating that next slice can be reloaded     */
                   /*          from host memory to device memory.             */
-                  iGRFdevice = deviceGlobalRefreshFlags[idx_io];
+                  iGRFdevice *= deviceGlobalRefreshFlags[idx_io];
                   // TODO : ` i = i & ( (~f ^ f) | f ); '
                 }
               }
@@ -162,7 +167,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
             /*&*/dimThreadsX = args.dimThreadsX,
             /*&*/dimThreadsY = args.dimThreadsY;
 
-  int iz, iiz, idx_io, idx_shared;
+  int iz, iiz, idx_io, idx_sync, idx_shared;
 
   // TODO : ALIGN CODE LINES!!!
   float  fResult,
@@ -178,25 +183,34 @@ __global__ void testKernel ( TestKernelArguments_t args )
           * &global_now = args.global_now;
 
   /* STEP6 : Waiting when main process sets continuation flag. */
+  // TODO I AM HERE (09.03.16) : FIX AN ERROR : Implement an empty loop     \
+  //                                             that waits for `bContinue' \
+  //                                             flag:                       
   // TODO : Use loop with timesteps instead of bContinue flag:
   // TODO : Put here global loop over all global memory CHUNCKS \
   //         (index is irrelevant - host responsible for        \
   //         proper memory loading and unloading):               
-  while ( *(args.bContinue) );
+  while ( !*(args.bContinue) ) {}
+  while ( *(args.bContinue) )
   {
 
     // Per-block loop alongside z direction:
 //#pragma unroll 3
     for ( iz = 0; iz < dimzBlock; iz++ )
     {
-      /* ioBuffer size is equal to                                    */
-      /*  dimSlice{4}*gridDim{2}*gridDim{2}*blockDim{16}*blockDim{16} */
-      /*  *threadSize{128}.                                           */
+      // ioBuffer size is equal to                                    \
+      //  dimSlice{4}*gridDim{2}*gridDim{2}*blockDim{16}*blockDim{16} \
+      //  *threadSize{128}.                                            
       idx_io = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*dimz*iz \
                + dimyBlock*dimThreadsX*dimThreadsY*dimz*blkx       \
                + dimThreadsX*dimThreadsY*dimz*blky                 \
                + dimThreadsY*dimz*ltidx                            \
                + dimz*ltidy;                                        
+      idx_sync = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*iz \
+                 + dimyBlock*dimThreadsX*dimThreadsY*blkx       \
+                 + dimThreadsX*dimThreadsY*blky                 \
+                 + dimThreadsY*ltidx                            \
+                 + ltidy;                                        
 
       memcpy                                                   \
       (                                                        \
@@ -250,12 +264,14 @@ __global__ void testKernel ( TestKernelArguments_t args )
 
       /* STEP13 : Thread sets its flag indicating that it completes */
       /*           evaluating its part of current slice.            */
+      // TODO : I AM HERE (09.03.16) : FIX AN ERROR : All processes block   \
+      //                                               each other and hang:  
       // TODO (DONE) : FIX AN ERROR!!! Flags have to include both \
       //                                xy-block and z indexes:    
       // TODO (DONE) : Find out why there are only thread indices but no \
       //                block's ones:                                     
       // TODO (DONE) : We need control stream for synchronization with host:
-      deviceGlobalRefreshFlags[idx_io] = 1;
+      deviceGlobalRefreshFlags[idx_sync] = 1;
       // 1 - ready, 0 - wait.
 
     }
@@ -267,11 +283,16 @@ __global__ void testKernel ( TestKernelArguments_t args )
     while ( *deviceWaitWhileLoadingGlobalChunk ) {}
 
     /* STEP25 : Resetting flag to its "wait" state. */
-    // TODO : (DONE) : ERROR (FIXED) : Verify if this reset works \
-    //                                  properly.                  
-    for ( iz = 0 ; iz < dimz ; iz++ )
-      // 1 - ready, 0 - wait:
-      deviceGlobalRefreshFlags[dimThreadsY*gtidx + gtidy] = 0;
+    // TODO : Verify if this reset works properly:
+    for ( iz = 0 ; iz < dimzBlock ; iz++ )
+    {
+      idx_sync = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*iz \
+                 + dimyBlock*dimThreadsX*dimThreadsY*blkx       \
+                 + dimThreadsX*dimThreadsY*blky                 \
+                 + dimThreadsY*ltidx                            \
+                 + ltidy;                                        
+      deviceGlobalRefreshFlags[idx_sync] = 0;  // 1 - ready, 0 - wait.
+    }
 
     /* STEP26 : Wait until all threads comes to this line. */
     __syncthreads();//???? TODO : remove??? __syncthreads()
