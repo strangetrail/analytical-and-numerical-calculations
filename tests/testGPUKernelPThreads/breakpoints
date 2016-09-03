@@ -64,8 +64,16 @@ else
 	bpfilename="saved_breakpoints.txt" ;
 	bpfile="saved.txt" ;
 	bpfile_sorted="saved_sorted.txt" ;
+	bpfile_tr="saved_breakpoints.tr.txt" ;
 	STARTSWITHSPACES="" ;
+
+	read DISABLEDCOUNT <<<$( grep -o "^disable$" $bpfilename | wc -l ) ;
+	cat $bpfilename | tr '\n' '@' > $bpfile_tr ;
+	sed -i -E "s/\<disable\>/_____dis/g""$DISABLEDCOUNT""; s/\<disable\>//g; s/_____dis/disable/g" "$bpfile_tr" ;
+	cat $bpfile_tr | tr '@' '\n' | grep -v "^$" > $bpfilename ;
+
 	echo -n "" > $bpfile ;
+
 	while IFS='' read -r line || [[ -n "$line" ]]
 	do
 		read STARTSWITHSPACES <<< $( echo "$line" | grep "^\s\+" ) ;
@@ -130,4 +138,5 @@ else
 
 	rm -f $bpfile ;
 	rm -f $bpfile_sorted ;
+	rm -f $bpfile_tr ;
 fi ;
