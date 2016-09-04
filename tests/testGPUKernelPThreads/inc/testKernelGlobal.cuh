@@ -53,6 +53,8 @@ __global__ void testKernelControlStream                   \
   int i, j, k, l, m, n, iGRFdevice, idx_io;
 
   /* STEP4 : Waiting while main process sets continuation flag. */
+  // TODO : I AM HERE (09.04.16) : FIX CRITICAL ERROR : Loop does not count \
+  //                                                     timesteps:          
   // TODO I AM HERE (09.03.16) : FIX AN ERROR : Implement an empty loop     \
   //                                             that waits for `bContinue' \
   //                                             flag:                       
@@ -137,8 +139,8 @@ __global__ void testKernel ( TestKernelArguments_t args )
   */
   // TODO : Remove extra `const':
   // TODO : Optimize!!!
-  const int gtidx = blockIdx.x * blockDim.x + threadIdx.x,
-            gtidy = blockIdx.y * blockDim.y + threadIdx.y,
+  const int /*gtidx = blockIdx.x * blockDim.x + threadIdx.x,*/
+            /*gtidy = blockIdx.y * blockDim.y + threadIdx.y,*/
             ltidx = threadIdx.x,
             ltidy = threadIdx.y,
             blkx  = blockIdx.x,
@@ -183,6 +185,8 @@ __global__ void testKernel ( TestKernelArguments_t args )
           * &global_now = args.global_now;
 
   /* STEP6 : Waiting when main process sets continuation flag. */
+  // TODO : I AM HERE (09.04.16) : FIX CRITICAL ERROR : Loop does not count \
+  //                                                     timesteps:          
   // TODO I AM HERE (09.03.16) : FIX AN ERROR : Implement an empty loop     \
   //                                             that waits for `bContinue' \
   //                                             flag:                       

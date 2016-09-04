@@ -50,6 +50,8 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
 
 #endif
 
+  // TODO : I AM HERE (09.04.16) : FIX CRITICAL ERROR : Loop does not count \
+  //                                                     timesteps:          
   // TODO : Verify that there are no more reference-value        \
   //         initializations in threads, launched from loop with \
   //         variable parameters:                                 
