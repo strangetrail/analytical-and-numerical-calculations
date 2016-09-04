@@ -45,13 +45,14 @@ struct structSharedKernelArgumentsBase
             dimxBlock,
             dimyBlock,
             dimSlice,
-            maxChunks;
+            maxChunks,
+            timesteps;
 
   structSharedKernelArgumentsBase                         \
   (                                                       \
     unsigned char * , unsigned char * , unsigned char * , \
     const int , const int , const int , const int ,       \
-    const int , const int                                 \
+    const int , const int , const int                     \
   );                                                       
 };
 
@@ -75,7 +76,7 @@ struct structTestKernelControlStreamArguments : public structSharedKernelArgumen
     unsigned char * , unsigned char * , unsigned char * , \
     unsigned char * , unsigned char * , unsigned char * , \
     const int , const int , const int , const int ,       \
-    const int , const int                                 \
+    const int , const int , const int                     \
   );                                                       
 };
 
@@ -91,7 +92,7 @@ struct structTestKernelArguments : public structSharedKernelArgumentsBase
   structTestKernelArguments                                     \
   (                                                             \
     const int , const int , const int , const int , const int , \
-    const int , const int , const int , const int ,             \
+    const int , const int , const int , const int , const int , \
     float * , clock_t * ,                                       \
     unsigned char * , unsigned char * , unsigned char *         \
   );                                                             
@@ -103,7 +104,8 @@ struct structReloadMemChunkArgs
   const int maxChunks,
             dimSlice,
             sliceSize,
-            chunkSize;
+            chunkSize,
+            timesteps;
   const float *bufferSrc;
   unsigned char *hostWait4RefreshGlobalSlice;
 
@@ -119,22 +121,22 @@ struct structReloadMemChunkArgs
 
 #ifdef DEBUG_INFO
 
-  structReloadMemChunkArgs ( const int , const int ,           \
-                             const int , const int ,           \
-                             int ,                             \
-                             const float* , float* , float* ,  \
-                             unsigned char * , unsigned char * \
-                           );                                   
+  structReloadMemChunkArgs ( const int , const int ,             \
+                             const int , const int , const int , \
+                             int ,                               \
+                             const float* , float* , float* ,    \
+                             unsigned char * , unsigned char *   \
+                           );                                     
 
 #else
 
-  structReloadMemChunkArgs ( const int , const int ,           \
-                             const int , const int ,           \
-                             int ,                             \
-                             const float* , float* , float* ,  \
-                             unsigned char * , unsigned char * \
-                             unsigned char *                   \
-                           );                                   
+  structReloadMemChunkArgs ( const int , const int ,             \
+                             const int , const int , const int , \
+                             int ,                               \
+                             const float* , float* , float* ,    \
+                             unsigned char * , unsigned char * , \
+                             unsigned char *                     \
+                           );                                     
 
 #endif
 

@@ -53,14 +53,14 @@ __global__ void testKernelControlStream                   \
   int i, j, k, l, m, n, iGRFdevice, idx_io;
 
   /* STEP4 : Waiting while main process sets continuation flag. */
-  // TODO : I AM HERE (09.04.16) : FIX CRITICAL ERROR : Loop does not count \
-  //                                                     timesteps:          
+  // TODO (DONE) : FIX CRITICAL ERROR : Loop does not count \
+  //                                     timesteps:          
   // TODO I AM HERE (09.03.16) : FIX AN ERROR : Implement an empty loop     \
   //                                             that waits for `bContinue' \
   //                                             flag:                       
   // TODO : Use loop with timesteps instead of bContinue flag:
   while ( !*(args.bContinue) ) {}
-  while ( *(args.bContinue) )
+  for ( int timestep = 0; timestep < args.timesteps; timestep++ )
   {
     for ( k = 0; k < args.maxChunks; k++ )
     {
@@ -185,8 +185,8 @@ __global__ void testKernel ( TestKernelArguments_t args )
           * &global_now = args.global_now;
 
   /* STEP6 : Waiting when main process sets continuation flag. */
-  // TODO : I AM HERE (09.04.16) : FIX CRITICAL ERROR : Loop does not count \
-  //                                                     timesteps:          
+  // TODO (DONE) : FIX CRITICAL ERROR : Loop does not count \
+  //                                     timesteps:          
   // TODO I AM HERE (09.03.16) : FIX AN ERROR : Implement an empty loop     \
   //                                             that waits for `bContinue' \
   //                                             flag:                       
@@ -195,9 +195,8 @@ __global__ void testKernel ( TestKernelArguments_t args )
   //         (index is irrelevant - host responsible for        \
   //         proper memory loading and unloading):               
   while ( !*(args.bContinue) ) {}
-  while ( *(args.bContinue) )
+  for ( int timestep = 0; timestep < args.timesteps; timestep++ )
   {
-
     // Per-block loop alongside z direction:
 //#pragma unroll 3
     for ( iz = 0; iz < dimzBlock; iz++ )
@@ -307,8 +306,6 @@ __global__ void testKernel ( TestKernelArguments_t args )
     //Stop and wait here in GLOBAL loop for new CHUNK \
     // (synchronize with host)                         
   }
-  // TODO (DONE) : Verify repeat-until behavior in c++.
-
 }
 
 #endif

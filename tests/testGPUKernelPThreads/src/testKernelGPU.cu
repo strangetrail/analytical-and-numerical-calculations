@@ -50,85 +50,93 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
 
 #endif
 
-  // TODO : I AM HERE (09.04.16) : FIX CRITICAL ERROR : Loop does not count \
-  //                                                     timesteps:          
+  // TODO (DONE) : FIX CRITICAL ERROR : Loop does not count \
+  //                                     timesteps:          
   // TODO : Verify that there are no more reference-value        \
   //         initializations in threads, launched from loop with \
   //         variable parameters:                                 
-  for ( int idxChunk = 0; idxChunk < args.maxChunks; idxChunk++ )
+  for ( int timestep = 0; timestep < args.timesteps; timestep++ )
   {
-    /* STEP2 : Waiting until current slice will be reloaded. */
-    // TODO : Rename to `...WaitWhileRefreshing...':
-    while ( args.hostWait4RefreshGlobalSlice[args.idxSlice] ) {}
+    for ( int idxChunk = 0; idxChunk < args.maxChunks; idxChunk++ )
+    {
+      /* STEP2 : Waiting until current slice will be reloaded. */
+      // TODO : Rename to `...WaitWhileRefreshing...':
+  b()
+      while ( args.hostWait4RefreshGlobalSlice[args.idxSlice] ) {}
 
-    // TODO : Figure out where this should be:
-    /*
-    checkCudaErrors ( cudaEventRecord ( eventReadWrite[args.idxSlice], \
-                                        streamCopyD2H                  \
-                    )                 );                                
-    */
+      // TODO : Figure out where this should be:
+      /*
+      checkCudaErrors ( cudaEventRecord ( eventReadWrite[args.idxSlice], \
+                                          streamCopyD2H                  \
+                      )                 );                                
+      */
 
-    // TODO (DONE) : Verify if this is copying stream and \
-    //                NOT calculating stream:              
-    checkCudaErrors ( cudaMemcpyAsync                                 \
-                      (                                               \
-                        &dstBuffer[args.chunkSize * idxChunk          \
-                                   + args.sliceSize * args.idxSlice], \
-                        &ioBuffer[args.sliceSize * args.idxSlice],    \
-                        args.sliceSize * sizeof ( float ),            \
-                        cudaMemcpyDeviceToHost,                       \
-                        streamCopyD2H                                 \
-                      )                                               \
-                    );                                                 
-
-    /* STEP15 : Pausing sream `streamCopyH2D' while waiting each stream */
-    /*           `streamCopyD2H' copying date from device back to host. */
-    checkCudaErrors ( cudaEventRecord ( eventReadWrite[args.idxSlice], \
-                                        streamCopyD2H                  \
-                    )                 );                                
-    checkCudaErrors ( cudaStreamWaitEvent              \
-                      (                                \
-                        streamCopyH2D,                 \
-                        eventReadWrite[args.idxSlice], \
-                        0                              \
-                      )                                \
-                    );                                  
-
-    // 4.04.16 - fixed idxChunk to idxChunk + 1
-    /* STEP16 : Copying new data to device in specific memory location of */
-    /*           each slice.                                              */
-    // TODO : Optimize two IFs below:
-    if ( idxChunk < args.maxChunks - 1 )
       // TODO (DONE) : Verify if this is copying stream and \
-      //                NOT calculating stream!!!            
+      //                NOT calculating stream:              
+  b()
       checkCudaErrors ( cudaMemcpyAsync                                 \
                         (                                               \
-                          &ioBuffer[args.sliceSize * args.idxSlice],    \
-                          &srcBuffer[args.chunkSize * (idxChunk+1)      \
+                          &dstBuffer[args.chunkSize * idxChunk          \
                                      + args.sliceSize * args.idxSlice], \
+                          &ioBuffer[args.sliceSize * args.idxSlice],    \
                           args.sliceSize * sizeof ( float ),            \
-                          cudaMemcpyHostToDevice,                       \
-                          streamCopyH2D                                 \
+                          cudaMemcpyDeviceToHost,                       \
+                          streamCopyD2H                                 \
                         )                                               \
                       );                                                 
-    if ( idxChunk == args.maxChunks )
-      // TODO (DONE) : Verify if this is copying stream and \
-      //                NOT (!!!) calculating stream:        
-      // Returning to the first chunk for another timestep:
-      checkCudaErrors ( cudaMemcpyAsync                               \
-                        (                                             \
-                          &ioBuffer[args.sliceSize * args.idxSlice],  \
-                          &dstBuffer[args.sliceSize * args.idxSlice], \
-                          args.sliceSize * sizeof ( float ),          \
-                          cudaMemcpyHostToDevice,                     \
-                          streamCopyH2D                               \
-                        )                                             \
-                      );                                               
 
-    /* STEP17 : Resetting flag to "wait" condition. */
-    args.hostWait4RefreshGlobalSlice[args.idxSlice] = 1;
+      /* STEP15 : Pausing sream `streamCopyH2D' while waiting each stream */
+      /*           `streamCopyD2H' copying date from device back to host. */
+  b()
+      checkCudaErrors ( cudaEventRecord ( eventReadWrite[args.idxSlice], \
+                                          streamCopyD2H                  \
+                      )                 );                                
+      checkCudaErrors ( cudaStreamWaitEvent              \
+                        (                                \
+                          streamCopyH2D,                 \
+                          eventReadWrite[args.idxSlice], \
+                          0                              \
+                        )                                \
+                      );                                  
+
+      // 4.04.16 - fixed idxChunk to idxChunk + 1
+      /* STEP16 : Copying new data to device in specific memory location of */
+      /*           each slice.                                              */
+      // TODO : Optimize two IFs below:
+      if ( idxChunk < args.maxChunks - 1 )
+        // TODO (DONE) : Verify if this is copying stream and \
+        //                NOT calculating stream!!!            
+  b()
+        checkCudaErrors ( cudaMemcpyAsync                                 \
+                          (                                               \
+                            &ioBuffer[args.sliceSize * args.idxSlice],    \
+                            &srcBuffer[args.chunkSize * (idxChunk+1)      \
+                                       + args.sliceSize * args.idxSlice], \
+                            args.sliceSize * sizeof ( float ),            \
+                            cudaMemcpyHostToDevice,                       \
+                            streamCopyH2D                                 \
+                          )                                               \
+                        );                                                 
+      if ( idxChunk == args.maxChunks )
+        // TODO (DONE) : Verify if this is copying stream and \
+        //                NOT (!!!) calculating stream:        
+        // Returning to the first chunk for another timestep:
+  b()
+        checkCudaErrors ( cudaMemcpyAsync                               \
+                          (                                             \
+                            &ioBuffer[args.sliceSize * args.idxSlice],  \
+                            &dstBuffer[args.sliceSize * args.idxSlice], \
+                            args.sliceSize * sizeof ( float ),          \
+                            cudaMemcpyHostToDevice,                     \
+                            streamCopyH2D                               \
+                          )                                             \
+                        );                                               
+
+      /* STEP17 : Resetting flag to "wait" condition. */
+  b()
+      args.hostWait4RefreshGlobalSlice[args.idxSlice] = 1;
+    }
   }
-
   return NULL;
 }
 
@@ -192,7 +200,8 @@ bool testGPU                            \
     dimSlice,                           \
     maxChunks,                          \
     dimxBlock,                          \
-    dimyBlock                           \
+    dimyBlock,                          \
+    timesteps                           \
   );                                     
   TestKernelArguments_t argsKPT                                     \
   (                                                                 \
@@ -202,6 +211,7 @@ bool testGPU                            \
     /* TODO : Extra zdimblock dimension !!! VERIFY all           */ \
     /*         deviceGlobalRefreshFlags and linked host flags!!! */ \
     maxChunks,                                                      \
+    timesteps,                                                      \
     NULL, NULL, NULL, NULL, NULL                                    \
   );                                                                 
   ReloadMemChunkArgs_t *argsRMC;
@@ -372,22 +382,24 @@ bool testGPU                            \
 
 #ifdef DEBUG_INFO
 
-  argsRMC = new ReloadMemChunkArgs_t                            \
-                (                                               \
-                  maxChunks, dimSlice, sliceSize, chunkSize, 0, \
-                  bufferSrc, bufferDst, ioBuffer,               \
-                  hostWait4RefreshGlobalSlice,                  \
-                  debugFlags                                    \
-                );                                               
+  argsRMC = new ReloadMemChunkArgs_t                         \
+                (                                            \
+                  maxChunks, dimSlice, sliceSize, chunkSize, \
+                  timesteps, 0,                              \
+                  bufferSrc, bufferDst, ioBuffer,            \
+                  hostWait4RefreshGlobalSlice,               \
+                  debugFlags                                 \
+                );                                            
 
 #else
 
-  argsRMC = new ReloadMemChunkArgs_t                            \
-                (                                               \
-                  maxChunks, dimSlice, sliceSize, chunkSize, 0, \
-                  bufferSrc, bufferDst, ioBuffer,               \
-                  hostWait4RefreshGlobalSlice                   \
-                );                                               
+  argsRMC = new ReloadMemChunkArgs_t                         \
+                (                                            \
+                  maxChunks, dimSlice, sliceSize, chunkSize, \
+                  timesteps, 0,                              \
+                  bufferSrc, bufferDst, ioBuffer,            \
+                  hostWait4RefreshGlobalSlice                \
+                );                                            
 
 #endif
 
@@ -419,7 +431,7 @@ bool testGPU                            \
       argsRMC = new ReloadMemChunkArgs_t                         \
                     (                                            \
                       maxChunks, dimSlice, sliceSize, chunkSize, \
-                      idxSlice + 1,                              \
+                      timesteps, idxSlice + 1,                   \
                       bufferSrc, bufferDst, ioBuffer,            \
                       hostWait4RefreshGlobalSlice,               \
                       debugFlags                                 \
@@ -430,7 +442,7 @@ bool testGPU                            \
       argsRMC = new ReloadMemChunkArgs_t                         \
                     (                                            \
                       maxChunks, dimSlice, sliceSize, chunkSize, \
-                      idxSlice + 1,                              \
+                      timesteps, idxSlice + 1,                   \
                       bufferSrc, bufferDst, ioBuffer,            \
                       hostWait4RefreshGlobalSlice                \
                     );                                            

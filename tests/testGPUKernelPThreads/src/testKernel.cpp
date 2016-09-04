@@ -114,6 +114,7 @@ structReloadMemChunkArgs::structReloadMemChunkArgs                      \
                             const int dimSlice,                         \
                             const int sliceSize,                        \
                             const int chunkSize,                        \
+                            const int timesteps,                        \
                             int idxSlice,                               \
                             const float* bufferSrc,                     \
                             float* bufferDst,                           \
@@ -123,6 +124,7 @@ structReloadMemChunkArgs::structReloadMemChunkArgs                      \
                           ) :                                            
   maxChunks (maxChunks), dimSlice (dimSlice),
   sliceSize (sliceSize), chunkSize (chunkSize),
+  timesteps (timesteps),
   bufferSrc (bufferSrc)
 {
   this->idxSlice = idxSlice;
@@ -140,6 +142,7 @@ structReloadMemChunkArgs::structReloadMemChunkArgs                     \
                             const int dimSlice,                        \
                             const int sliceSize,                       \
                             const int chunkSize,                       \
+                            const int timesteps,                       \
                             int idxSlice,                              \
                             const float* bufferSrc,                    \
                             float* bufferDst,                          \
@@ -148,6 +151,7 @@ structReloadMemChunkArgs::structReloadMemChunkArgs                     \
                           ) :                                           
   maxChunks (maxChunks), dimSlice (dimSlice),
   sliceSize (sliceSize), chunkSize (chunkSize),
+  timesteps (timesteps),
   bufferSrc (bufferSrc)
 {
   this->idxSlice = idxSlice;
@@ -167,7 +171,8 @@ structSharedKernelArgumentsBase::structSharedKernelArgumentsBase \
     const int dimSlice,                                          \
     const int maxChunks,                                         \
     const int dimxBlock,                                         \
-    const int dimyBlock                                          \
+    const int dimyBlock,                                         \
+    const int timesteps                                          \
   ) :                                                             
   bContinue (bContinue),
   deviceWaitWhileLoadingGlobalChunk (deviceWaitWhileLoadingGlobalChunk),
@@ -177,7 +182,8 @@ structSharedKernelArgumentsBase::structSharedKernelArgumentsBase \
   dimSlice (dimSlice),
   maxChunks (maxChunks),
   dimxBlock (dimxBlock),
-  dimyBlock (dimyBlock)
+  dimyBlock (dimyBlock),
+  timesteps (timesteps)
 {}
 
 structTestKernelControlStreamArguments::structTestKernelControlStreamArguments \
@@ -193,7 +199,8 @@ structTestKernelControlStreamArguments::structTestKernelControlStreamArguments \
     const int dimSlice,                                         \
     const int maxChunks,                                        \
     const int dimxBlock,                                        \
-    const int dimyBlock                                         \
+    const int dimyBlock,                                        \
+    const int timesteps                                         \
   ) :                                                            
   structSharedKernelArgumentsBase      \
   (                                    \
@@ -204,7 +211,8 @@ structTestKernelControlStreamArguments::structTestKernelControlStreamArguments \
     dimSlice,                          \
     maxChunks,                         \
     dimxBlock,                         \
-    dimyBlock                          \
+    dimyBlock,                         \
+    timesteps                          \
   ),                                    
   hostWait4RefreshGlobalSlice (hostWait4RefreshGlobalSlice),
   hostWait4RefreshingChunk_WhileLoadingSlices (hostWait4RefreshingChunk_WhileLoadingSlices),
@@ -222,6 +230,7 @@ structTestKernelArguments::structTestKernelArguments  \
     const int dimThreadsX,                            \
     const int dimThreadsY,                            \
     const int maxChunks,                              \
+    const int timesteps,                              \
     float *buffer,                                    \
     clock_t *global_now,                              \
     unsigned char *deviceWaitWhileLoadingGlobalChunk, \
@@ -237,7 +246,8 @@ structTestKernelArguments::structTestKernelArguments  \
     dimSlice,                          \
     maxChunks,                         \
     dimxBlock,                         \
-    dimyBlock                          \
+    dimyBlock,                         \
+    timesteps                          \
   ),                                    
   dimx (dimx), dimy (dimy), dimz (dimz)
 {
