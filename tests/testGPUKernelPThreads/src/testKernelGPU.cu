@@ -61,7 +61,6 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
     {
       /* STEP2 : Waiting until current slice will be reloaded. */
       // TODO : Rename to `...WaitWhileRefreshing...':
-  b()
       while ( args.hostWait4RefreshGlobalSlice[args.idxSlice] ) {}
 
       // TODO : Figure out where this should be:
@@ -73,7 +72,6 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
 
       // TODO (DONE) : Verify if this is copying stream and \
       //                NOT calculating stream:              
-  b()
       checkCudaErrors ( cudaMemcpyAsync                                 \
                         (                                               \
                           &dstBuffer[args.chunkSize * idxChunk          \
@@ -87,7 +85,6 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
 
       /* STEP15 : Pausing sream `streamCopyH2D' while waiting each stream */
       /*           `streamCopyD2H' copying date from device back to host. */
-  b()
       checkCudaErrors ( cudaEventRecord ( eventReadWrite[args.idxSlice], \
                                           streamCopyD2H                  \
                       )                 );                                
@@ -106,7 +103,6 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
       if ( idxChunk < args.maxChunks - 1 )
         // TODO (DONE) : Verify if this is copying stream and \
         //                NOT calculating stream!!!            
-  b()
         checkCudaErrors ( cudaMemcpyAsync                                 \
                           (                                               \
                             &ioBuffer[args.sliceSize * args.idxSlice],    \
@@ -121,7 +117,6 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
         // TODO (DONE) : Verify if this is copying stream and \
         //                NOT (!!!) calculating stream:        
         // Returning to the first chunk for another timestep:
-  b()
         checkCudaErrors ( cudaMemcpyAsync                               \
                           (                                             \
                             &ioBuffer[args.sliceSize * args.idxSlice],  \
@@ -133,7 +128,6 @@ void * reloadGlobal2SharedMemSlice ( void *arguments )
                         );                                               
 
       /* STEP17 : Resetting flag to "wait" condition. */
-  b()
       args.hostWait4RefreshGlobalSlice[args.idxSlice] = 1;
     }
   }
