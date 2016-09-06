@@ -169,7 +169,7 @@ __global__ void testKernel ( TestKernelArguments_t args )
             /*&*/dimThreadsX = args.dimThreadsX,
             /*&*/dimThreadsY = args.dimThreadsY;
 
-  int iz, iiz, idx_io, idx_sync, idx_shared;
+  int k, iz, iiz, idx_io, idx_sync, idx_shared;
 
   // TODO : ALIGN CODE LINES!!!
   float  fResult,
