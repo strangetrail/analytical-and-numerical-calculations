@@ -197,114 +197,117 @@ __global__ void testKernel ( TestKernelArguments_t args )
   while ( !*(args.bContinue) ) {}
   for ( int timestep = 0; timestep < args.timesteps; timestep++ )
   {
-    // Per-block loop alongside z direction:
-//#pragma unroll 3
-    for ( iz = 0; iz < dimzBlock; iz++ )
+    for ( k = 0; k < args.maxChunks; k++ )
     {
-      // ioBuffer size is equal to                                    \
-      //  dimSlice{4}*gridDim{2}*gridDim{2}*blockDim{16}*blockDim{16} \
-      //  *threadSize{128}.                                            
-      idx_io = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*dimz*iz \
-               + dimyBlock*dimThreadsX*dimThreadsY*dimz*blkx       \
-               + dimThreadsX*dimThreadsY*dimz*blky                 \
-               + dimThreadsY*dimz*ltidx                            \
-               + dimz*ltidy;                                        
-      idx_sync = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*iz \
-                 + dimyBlock*dimThreadsX*dimThreadsY*blkx       \
-                 + dimThreadsX*dimThreadsY*blky                 \
-                 + dimThreadsY*ltidx                            \
-                 + ltidy;                                        
-
-      memcpy                                                   \
-      (                                                        \
-        (float *)&ioTile[dimThreadsY*dimz*ltidx + dimz*ltidy], \
-        (float *)&ioBuffer[idx_io],                            \
-        dimz * sizeof(float)                                   \
-      );                                                        
-
-      /* STEP10 : Wait until all threads comes to this line. */
-      __syncthreads();
-
-      /* TODO (DONE) : ERROR: Out-fo-range exception */
-      /*                       in cuda kernel!       */
+      // Per-block loop alongside z direction:
 //#pragma unroll 3
-      for ( iiz = 0; iiz < dimz - 1/* Optimize !! */; iiz++ )
+      for ( iz = 0; iz < dimzBlock; iz++ )
       {
-        idx_shared = dimThreadsY*dimz*ltidx \
-                     + dimz*ltidy           \
-                     + iiz;                  
-        fResult = ioTile[idx_shared]        \
-                  + ioTile[idx_shared + 1];  
+        // ioBuffer size is equal to                                    \
+        //  dimSlice{4}*gridDim{2}*gridDim{2}*blockDim{16}*blockDim{16} \
+        //  *threadSize{128}.                                            
+        idx_io = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*dimz*iz \
+                 + dimyBlock*dimThreadsX*dimThreadsY*dimz*blkx       \
+                 + dimThreadsX*dimThreadsY*dimz*blky                 \
+                 + dimThreadsY*dimz*ltidx                            \
+                 + dimz*ltidy;                                        
+        idx_sync = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*iz \
+                   + dimyBlock*dimThreadsX*dimThreadsY*blkx       \
+                   + dimThreadsX*dimThreadsY*blky                 \
+                   + dimThreadsY*ltidx                            \
+                   + ltidy;                                        
 
-        start = clock ();
-        for (;;)
+        memcpy                                                   \
+        (                                                        \
+          (float *)&ioTile[dimThreadsY*dimz*ltidx + dimz*ltidy], \
+          (float *)&ioBuffer[idx_io],                            \
+          dimz * sizeof(float)                                   \
+        );                                                        
+
+        /* STEP10 : Wait until all threads comes to this line. */
+        __syncthreads();
+
+        /* TODO (DONE) : ERROR: Out-fo-range exception */
+        /*                       in cuda kernel!       */
+//#pragma unroll 3
+        for ( iiz = 0; iiz < dimz - 1/* Optimize !! */; iiz++ )
         {
-          now = clock();
-          cycles = now > start ? now - start : now + (0xffffffff - start);
-          // TODO : I AM HERE (07.30.16) : Ensure that `cycles' don't cause \
-          //                                hanging.                         
-          if ( cycles >= 10000 )
-            break;
+          idx_shared = dimThreadsY*dimz*ltidx \
+                       + dimz*ltidy           \
+                       + iiz;                  
+          fResult = ioTile[idx_shared]        \
+                    + ioTile[idx_shared + 1];  
+
+          start = clock ();
+          for (;;)
+          {
+            now = clock();
+            cycles = now > start ? now - start : now + (0xffffffff - start);
+            // TODO : I AM HERE (07.30.16) : Ensure that `cycles' don't cause \
+            //                                hanging.                         
+            if ( cycles >= 10000 )
+              break;
+          }
+          *global_now = now;
+
+          fResult *= ioTile[idx_shared]        \
+                     - ioTile[idx_shared + 1];  
+
+          /* STEP11 : Wait until all threads comes to this line. */
+          __syncthreads();
+
+          ioTile[idx_shared] = fResult;
+
+          /* STEP12 : Wait until all threads comes to this line. */
+          __syncthreads();
         }
-        *global_now = now;
 
-        fResult *= ioTile[idx_shared]        \
-                   - ioTile[idx_shared + 1];  
+        memcpy ( (float *)&ioBuffer[idx_io],                    \
+                 (float *)&ioTile[ltidx * dimThreadsY + ltidy], \
+                 dimzBlock * sizeof(float)                      \
+               );                                                
 
-        /* STEP11 : Wait until all threads comes to this line. */
-        __syncthreads();
+        /* STEP13 : Thread sets its flag indicating that it completes */
+        /*           evaluating its part of current slice.            */
+        // TODO : I AM HERE (09.03.16) : FIX AN ERROR : All processes block   \
+        //                                               each other and hang:  
+        // TODO (DONE) : FIX AN ERROR!!! Flags have to include both \
+        //                                xy-block and z indexes:    
+        // TODO (DONE) : Find out why there are only thread indices but no \
+        //                block's ones:                                     
+        // TODO (DONE) : We need control stream for synchronization with host:
+        deviceGlobalRefreshFlags[idx_sync] = 1;
+        // 1 - ready, 0 - wait.
 
-        ioTile[idx_shared] = fResult;
-
-        /* STEP12 : Wait until all threads comes to this line. */
-        __syncthreads();
       }
 
-      memcpy ( (float *)&ioBuffer[idx_io],                    \
-               (float *)&ioTile[ltidx * dimThreadsY + ltidy], \
-               dimzBlock * sizeof(float)                      \
-             );                                                
+      __syncthreads();
 
-      /* STEP13 : Thread sets its flag indicating that it completes */
-      /*           evaluating its part of current slice.            */
-      // TODO : I AM HERE (09.03.16) : FIX AN ERROR : All processes block   \
-      //                                               each other and hang:  
-      // TODO (DONE) : FIX AN ERROR!!! Flags have to include both \
-      //                                xy-block and z indexes:    
-      // TODO (DONE) : Find out why there are only thread indices but no \
-      //                block's ones:                                     
-      // TODO (DONE) : We need control stream for synchronization with host:
-      deviceGlobalRefreshFlags[idx_sync] = 1;
-      // 1 - ready, 0 - wait.
+      /* STEP24 : Waiting for new slices. */
+      // TODO : How to reset???
+      while ( *deviceWaitWhileLoadingGlobalChunk ) {}
 
+      /* STEP25 : Resetting flag to its "wait" state. */
+      // TODO : Verify if this reset works properly:
+      for ( iz = 0 ; iz < dimzBlock ; iz++ )
+      {
+        idx_sync = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*iz \
+                   + dimyBlock*dimThreadsX*dimThreadsY*blkx       \
+                   + dimThreadsX*dimThreadsY*blky                 \
+                   + dimThreadsY*ltidx                            \
+                   + ltidy;                                        
+        deviceGlobalRefreshFlags[idx_sync] = 0;  // 1 - ready, 0 - wait.
+      }
+
+      /* STEP26 : Wait until all threads comes to this line. */
+      __syncthreads();//???? TODO : remove??? __syncthreads()
+
+      /* STEP27 : Resetting flag to its "wait" state. */
+      *deviceWaitWhileLoadingGlobalChunk = __any(1);
+
+      //Stop and wait here in GLOBAL loop for new CHUNK \
+      // (synchronize with host)                         
     }
-
-    __syncthreads();
-
-    /* STEP24 : Waiting for new slices. */
-    // TODO : How to reset???
-    while ( *deviceWaitWhileLoadingGlobalChunk ) {}
-
-    /* STEP25 : Resetting flag to its "wait" state. */
-    // TODO : Verify if this reset works properly:
-    for ( iz = 0 ; iz < dimzBlock ; iz++ )
-    {
-      idx_sync = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*iz \
-                 + dimyBlock*dimThreadsX*dimThreadsY*blkx       \
-                 + dimThreadsX*dimThreadsY*blky                 \
-                 + dimThreadsY*ltidx                            \
-                 + ltidy;                                        
-      deviceGlobalRefreshFlags[idx_sync] = 0;  // 1 - ready, 0 - wait.
-    }
-
-    /* STEP26 : Wait until all threads comes to this line. */
-    __syncthreads();//???? TODO : remove??? __syncthreads()
-
-    /* STEP27 : Resetting flag to its "wait" state. */
-    *deviceWaitWhileLoadingGlobalChunk = __any(1);
-
-    //Stop and wait here in GLOBAL loop for new CHUNK \
-    // (synchronize with host)                         
   }
 }
 
