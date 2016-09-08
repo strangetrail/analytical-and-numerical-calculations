@@ -104,8 +104,9 @@ __global__ void testKernelControlStream                   \
       // TODO : This is much more optimal than overflow technique,   \
                  because it has lesser number of conditional checks:  
       // TODO I AM HERE (07.30.16) : Test the loop below:
-      for ( l = 0; l < dimzBlock; l++ )
-        l *= hostWait4RefreshGlobalSlice[l];
+      l = 0;
+      while ( l < dimzBlock )
+        l += hostWait4RefreshGlobalSlice[l];
 
       /* STEP19 : Telling host process that global chunk can be reloaded, */
       /*           evaluated, updated, etc.                               */

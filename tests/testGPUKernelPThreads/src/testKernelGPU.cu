@@ -485,7 +485,7 @@ bool testGPU                            \
 
 #endif
 
-    for ( int idxChunk = 1; idxChunk < maxChunks; idxChunk++ )
+    for ( int idxChunk = 0; idxChunk < maxChunks; idxChunk++ )
     {
 
 #ifdef DEBUG_INFO
@@ -556,7 +556,7 @@ bool testGPU                            \
 
     /* STEP21 : Sending "continue" signal to threads through control stream. */
     // TODO (DONE) : Fix possible error (same line as in above loop):
-    if (it < timesteps -1 )
+    if ( it < timesteps-1 )
       *hostWaitWhileLoadingGlobalChunk = 0;
   }
   // TODO (DONE) : Reset all flags properly here, before setting `bContinue' \
