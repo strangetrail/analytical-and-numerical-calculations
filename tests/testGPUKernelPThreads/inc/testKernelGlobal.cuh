@@ -151,9 +151,11 @@ __global__ void testKernel ( TestKernelArguments_t args )
   unsigned char *deviceWaitWhileLoadingGlobalChunk =      \
                   args.deviceWaitWhileLoadingGlobalChunk,  
                 *deviceGlobalRefreshFlags = args.deviceGlobalRefreshFlags;
-  // TODO (IMPORTANT and INTERESTING) : Figure out why reference types \
-  //                                     behaves as register pointers  \
-  //                                     in CUDA:                       
+  // TODO (IMPORTANT and INTERESTING) (DONE) : Figure out why reference types \
+  //                                           behaves as register pointers   \
+  //                                           in CUDA: all function          \
+  //                                           call parameters do not saved   \
+  //                                           in device memory.               
   const int /*&dimx          = args.dimx,*/
             /* `dimx' is whole XxY blocks global memory slices !!! */
             /*  e.g. slice No 1, slice No 2, ... , slice No N.     */

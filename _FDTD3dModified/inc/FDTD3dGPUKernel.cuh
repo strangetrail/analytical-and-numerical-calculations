@@ -15,18 +15,27 @@
 
 #include "FDTD3dGPU.h"
 
-// Note: If you change the RADIUS or VOLUME, you should also change the unrolling below
+// Note: If you change the RADIUS or VOLUME, you should also change the unrolling below:
 #define VOLUME VOLUME_SHARED
 #define RADIUS RADIUS_SHARED
 
-__constant__ UpdateCoefficients_t stencil;
+// TODO : Implement `cudaMemcpyToSymbol' for all constants:
+__constant__ UpdateCoefficients_t updateCoeffs;
+// TODO : Implement constant types and variables:
 __constant__ int T_src;
 __constant__ float omega_src;
 __constant__ float n_inc;
 __constant__ float k_src;
 __constant__ float musqrt_src;
 __constant__ float epsilonsqrt_src;
+
 __constant__ int blockDimXY;
+// Both "slice" and "layer" X and Y dimensions are equal \
+//  (not to be confused with "tile" dimensions) :         
+__constant__ int dimx;
+__constant__ int dimy;
+__constant__ int outerDimx;
+__constant__ int outerDimy;
 
 // TODO : Move all consts to const memory.              \
 //         CRITICAL WITH FDTD IMPLEMENTED INSIDE KERNEL~~
@@ -36,7 +45,9 @@ __constant__ int blockDimXY;
 // TODO (DONE) : Threads, pthreads, streams, or processes \
 //                hangs.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 extern __shared__ char memPack []; /* Test: 16 * 16 * 24 bytes. */
+/*
 extern __shared__ float tile [];
+*/
 
 // TODO : Ensure that control stream do not wait for threads while they \
 //         are reach chunk end and only waits for slices!!! Send        \
@@ -189,6 +200,8 @@ __global__ void FiniteDifferencesKernelWithSource          \
               /* dimy in whole XxY blocks global memory slices !!! */
               /*&*/dimz        = args.dimz,
               /* `dimz' is a thread memory length in z direction !!! */
+              /* TODO : `dimz' in working kernel should be 3 times lesser */
+              /*         than normal.                                     */
               /*&*/dimxBlock   = args.dimxBlock,
               /*&*/dimyBlock   = args.dimyBlock,
               /* `dimxBlock' and `dimyBlock' is a length of grid in blocks */
@@ -198,16 +211,37 @@ __global__ void FiniteDifferencesKernelWithSource          \
               /*&*/dimThreadsX = args.dimThreadsX,
               /*&*/dimThreadsY = args.dimThreadsY;
 
-    int k, iz, iiz, idx_io, idx_sync, idx_shared;
+    int k, iz, iiz, idx_io, idx_sync, idx_shared,
+        offset_I            = dimz * sizeof(FieldComponents_t),
+        /* TODO : Test integer type rounding in media and volume dimensions: */
+        /* In a timeframe we need to advance by half-timestep due to        */
+        /*  different steps in update equations associated with H and D and */
+        /*  also E and B fields:                                            */
+        dimXYHalfNearVolume = ( dimy - VOLUME_SHARED ) / 2,
+        dimXYHalfAfterVolume = dimy - dimXYHalfNearVolume,
+        dimXYPostPML = RADIUS_SHARED,
+        dimXYPrePML = outerDimy - RADIUS_SHARED,
+        dimZPrePML = outerDimz - RADIUS_SHARED;
+
 
     // TODO : ALIGN CODE LINES!!!
-    float  fResult,
+    float  fResult, ioItem, Curl,
           *ioBuffer = args.buffer,
           /* ioBuffer[dimSlice][(*dimxBlock)][(*dimyBlock)] */
           /*         [dimThreadsX][dimThreadsY]             */
-          *ioTile   = (float *)memPack;
+          /* TODO : Implement `buffer_IH' and `buffer_ID'  */
+          /*         in `FDTDKernelWithSourceArguments_t': */
+          *ioBuffer_IH = args.buffer_IH,
+          *ioBuffer_ID = args.buffer_ID,
+          /* TODO : Reevaluate `memPack' size when passing it in kernel: */
+          *ioTile = (float *)(memPack + 2*offset_I),
+          *ioTile_IH = (float *)memPack,
+          *ioTile_ID = (float *)(memPack + offset_I);
           /* ioTile[dimThreadsX][dimThreadsY] */
 
+    // TODO : Move `fdtdTFSFsrc...' to shared memory, because source signal \
+    //         2D tile changes in every chunk in it's first slice, and      \
+    //         equal to zero in other slices:                                
     TFSF_t fdtdTFSFsrcE,
            fdtdTFSFsrcH;
 
@@ -221,11 +255,20 @@ __global__ void FiniteDifferencesKernelWithSource          \
     for ( k = 0; k < args.maxChunks; k++ )
     {
       // Per-block loop alongside z direction:
+
+      // Additional loop cycle launced to evaluate z-axis PML borders and \
+      //  TF-SF layers before handling the main gomogeneous bulk:          
+      iz = 0;
+      // TODO : Implement first loop cycle here by wrapping loop body code in \
+      //         inline function and by calling it here.                       
+
+      // The last loop cycle should be implemented \
+      //  after the main bulk calculations:         
 //#pragma unroll 3
-      for ( iz = 0; iz < dimzBlock; iz++ )
+      for ( iz = 1; iz < (dimzBlock-1); iz++ )
       {
         // ioBuffer size is equal to                               \
-        //  dimSlice*gridDim*gridDim*blockDim*blockDim*threadSize.  
+        //  dimSlice*gridDim*gridDim*blockDim*blockDim*threadSize:  
         idx_io = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*dimz*iz \
                  + dimyBlock*dimThreadsX*dimThreadsY*dimz*blkx       \
                  + dimThreadsX*dimThreadsY*dimz*blky                 \
@@ -243,236 +286,284 @@ __global__ void FiniteDifferencesKernelWithSource          \
           (FieldComponents_t *)&ioBuffer[idx_io],                            \
           dimz * sizeof(FieldComponents_t)                                   \
         );                                                                    
-        /* TODO : I AM HERE (09.10.16) : memcpy ( IH and ID ) likewise */
-        /* TODO : memcpy fdtd tf-sf sin sources ??? */
+        memcpy                                                                  \
+        (                                                                       \
+          (FieldComponents_t *)&ioTile_IH[dimThreadsY*dimz*ltidx + dimz*ltidy], \
+          (FieldComponents_t *)&ioBuffer_IH[idx_io],                            \
+          dimz * sizeof(FieldComponents_t)                                      \
+        );                                                                       
+        memcpy                                                                  \
+        (                                                                       \
+          (FieldComponents_t *)&ioTile_ID[dimThreadsY*dimz*ltidx + dimz*ltidy], \
+          (FieldComponents_t *)&ioBuffer_ID[idx_io],                            \
+          dimz * sizeof(FieldComponents_t)                                      \
+        );                                                                       
 
         /* STEP10 : Wait until all threads comes to this line. */
         __syncthreads();
 
+        // TODO : Implement fields `TFSFsrc.E' and `TFSFsrc.H' \
+        //         in `FDTDKernelWithSourceArguments_t':        
+        // TODO : Change `ix' / `iy' to specific coordinates associated   \
+        //         with threads and blocks (both should be `idx_shared'):  
+        // TODO : I AM HERE (18.09.16) : I am still here until TF-SF       \
+        //                                corrections will be moved out of \
+        //                                main loop to first cycle:         
         // Step through xy-planes:
         // Inside PML pseudoboundaries:
         // TF-SF corrections:
-        // TODO : Change ix / iy to specific coordinates associated \
-        //         with threads and blocks !!!!                      
-        fdtdTFSFsrcE.sinsrc = (FieldComponents_t ***)&/*tile???*/;
-        fdtdTFSFsrcH.getTFSF = &getFDTDTFSFsrcE;
 
-        fdtdTFSFsrcH.sinsrc = (FieldComponents_t ***)&/*tile???*/[blockDimXY];
+        fdtdTFSFsrcE.sinsrc = args.TFSFsrc.E;
+        fdtdTFSFsrcE.getTFSF = &getFDTDTFSFsrcE;
+
+        fdtdTFSFsrcH.sinsrc = args.TFSFsrc.H;
         fdtdTFSFsrcH.getTFSF = &getFDTDTFSFsrcH;
 
-        fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED, 0, fdtdRefFieldWindowMediaHWrapper, fdtdRefFieldWindowMediaDWrapper, fdtdTFSFsrcE, 0 );
+        // TODO : Implement similar approach for passing arguments `ioTile', \
+        //         `ioTile_ID', and `ioTile_IH': both with derefencing       \
+        //         or both without it:                                        
+        // TODO : Rename `ioItem' and also `float &F' in wrapped functions \
+        //         into `fA':                                               
+        fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume,  \
+                           dimXYHalfNearVolume, dimXYHalfAfterVolume,  \
+                           dimx, dimy, ltidx, ltidy, *ioTile, *ioTile, \
+                           updateCoeffs, ioTile_IH, ioTile_ID,         \
+                           Curl, ioItem,                               \
+                           RADIUS_SHARED, 0,                           \
+                           fdtdRefFieldWindowMediaHWrapper,            \
+                           fdtdRefFieldWindowMediaDWrapper,            \
+                           fdtdTFSFsrcE, 0                             \
+                         );                                             
 
-        fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED, 0, 0, fdtdRefFieldWindowVolume, fdtdRefFieldWindowMediaDWrapper, fdtdTFSFsrcE, 0 );
+        fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                          dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                          ltidx, ltidy, *ioTile, *ioTile,            \
+                          updateCoeffs, ioTile_IH, ioTile_ID,        \
+                          Curl, ioItem,                              \
+                          RADIUS_SHARED, 0, 0,                       \
+                          fdtdRefFieldWindowVolume,                  \
+                          fdtdRefFieldWindowMediaDWrapper,           \
+                          fdtdTFSFsrcE, 0                            \
+                        );                                            
 
-        fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED + 1, 0, fdtdRefFieldWindowMediaHWrapper, fdtdRefFieldWindowMediaDWrapper, 0, fdtdTFSFsrcH );
+        fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume,  \
+                           dimXYHalfNearVolume, dimXYHalfAfterVolume,  \
+                           dimx, dimy, ltidx, ltidy, *ioTile, *ioTile, \
+                           updateCoeffs, ioTile_IH, ioTile_ID,         \
+                           Curl, ioItem,                               \
+                           RADIUS_SHARED + 1, 0,                       \
+                           fdtdRefFieldWindowMediaHWrapper,            \
+                           fdtdRefFieldWindowMediaDWrapper,            \
+                           0, fdtdTFSFsrcH                             \
+                         );                                             
 
-        fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED + 1, 0, 0, fdtdRefFieldWindowVolume, fdtdRefFieldWindowMediaDWrapper, 0, fdtdTFSFsrcH );
+        fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                          dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                          ltidx, ltidy, *ioTile, *ioTile,            \
+                          updateCoeffs, ioTile_IH, ioTile_ID,        \
+                          Curl, ioItem,                              \
+                          RADIUS_SHARED + 1, 0, 0,                   \
+                          fdtdRefFieldWindowVolume,                  \
+                          fdtdRefFieldWindowMediaDWrapper,           \
+                          0, fdtdTFSFsrcH                            \
+                        );                                            
 
-        // Field around sources:
+        // Field around sources (PML):
+
         for ( int iiz = RADIUS_SHARED ; iiz < RADIUS_SHARED + 2; iiz++ )
         {
-          fdtdRefSingleXY ( 0, dimXYPostPML, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-          fdtdRefSingleXY ( dimXYPrePML, outerDimx, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, dimx, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-          fdtdRefSingleXY ( dimXYPostPML, dimXYPrePML, 0, dimXYPostPML, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-          fdtdRefSingleXY ( dimXYPostPMLu, dimXYPrePML, dimXYPrePML, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, dimy, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
+          // TODO : I AM HERE (18.09.16) : Fix an error described below:
+          // TODO : FIX AN ERROR : Parameters mismatch:
+          // TODO : Ensure that block coordinates        \
+          //         blkidx and blkidy are not required:  
+          // TODO : Figure out why is there a dereferencing `*':
+          fdtdRefSingleXY ( 0, dimXYPostPML, 0, outerDimy,                \
+                            ltidx, ltidy, *ioTile, *ioTile, updateCoeffs, \
+                            ioTile_IH, ioTile_ID,                         \
+                            Curl, ioItem,                                 \
+                            iiz, ltidx, 0,                                \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
+
+          // TODO : Check if `dimx' is correct parameter:
+          fdtdRefSingleXY ( dimXYPrePML, outerDimx, 0, outerDimy,         \
+                            ltidx, ltidy, *ioTile, *ioTile, updateCoeffs, \
+                            ioTile_IH, ioTile_ID,                         \
+                            Curl, ioItem,                                 \
+                            iiz, ix, dimx,                                \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
+
+          fdtdRefSingleXY ( dimXYPostPML, dimXYPrePML, 0, dimXYPostPML,   \
+                            ltidx, ltidy, *ioTile, *ioTile, updateCoeffs, \
+                            ioTile_IH, ioTile_ID,                         \
+                            Curl, ioItem,                                 \
+                            iiz, ltidy, 0,                                \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
+
+          fdtdRefSingleXY ( dimXYPostPML, dimXYPrePML,                    \
+                            dimXYPrePML, outerDimy,                       \
+                            ltidx, ltidy, *ioTile, *ioTile, updateCoeffs, \
+                            ioTile_IH, ioTile_ID,                         \
+                            Curl, ioItem,                                 \
+                            iiz, ltidy, dimy,                             \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
         }
 
         for (int iiz = RADIUS_SHARED + 2 ; iiz < dimZPrePML ; iiz++)
         {
-          fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, 0, fdtdRefFieldWindowMediaHWrapper, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
+          fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                             dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                             dimx, dimy,                                \
+                             ltidx, ltidy, *ioTile, *ioTile,            \
+                             updateCoeffs,                              \
+                             ioTile_IH, ioTile_ID,                      \
+                             Curl, ioItem, iiz, 0,                      \
+                             fdtdRefFieldWindowMediaHWrapper,           \
+                             fdtdRefFieldWindowMediaDWrapper,           \
+                             &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull   \
+                           );                                            
 
-          fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, 0, 0, fdtdRefFieldWindowVolume, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
+          fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                            dimXYHalfNearVolume, dimXYHalfAfterVolume, \
+                            ltidx, ltidy, *ioTile, *ioTile,            \
+                            updateCoeffs,                              \
+                            ioTile_IH, ioTile_ID,                      \
+                            Curl, ioItem,                              \
+                            iiz, 0, 0,                                 \
+                            fdtdRefFieldWindowVolume,                  \
+                            fdtdRefFieldWindowMediaDWrapper,           \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull   \
+                          );                                            
 
-          fdtdRefSingleXY ( 0, dimXYPostPML, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-          fdtdRefSingleXY ( dimXYPrePML, outerDimx, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, dimx, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-          fdtdRefSingleXY ( dimXYPostPML, dimXYPrePML, 0, dimXYPostPML, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-          fdtdRefSingleXY ( dimXYPostPMLu, dimXYPrePML, dimXYPrePML, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, dimy, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
+          fdtdRefSingleXY ( 0, dimXYPostPML, 0, outerDimy,                \
+                            ltidx, ltidy, *ioTile, *ioTile,               \
+                            updateCoeffs, ioTile_IH, ioTile_ID,           \
+                            Curl, ioItem, iiz, ltidx, 0,                  \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
+
+          fdtdRefSingleXY ( dimXYPrePML, outerDimx, 0, outerDimy,         \
+                            ltidx, ltidy, *ioTile, *ioTile,               \
+                            updateCoeffs, ioTile_IH, ioTile_ID,           \
+                            Curl, ioItem, iiz, ltidx, dimx,               \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
+
+          fdtdRefSingleXY ( dimXYPostPML, dimXYPrePML, 0, dimXYPostPML,   \
+                            ltidx, ltidy, *ioTile, *ioTile,               \
+                            updateCoeffs, ioTile_IH, ioTile_ID,           \
+                            Curl, ioItem, iiz, ltidy, 0,                  \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
+
+          fdtdRefSingleXY ( dimXYPostPMLu, dimXYPrePML,                   \
+                            dimXYPrePML, outerDimy,                       \
+                            ltidx, ltidy, *ioTile, *ioTile,               \
+                            updateCoeffs, ioTile_IH, ioTile_ID,           \
+                            Curl, ioItem, iiz, ltidy, dimy,               \
+                            fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                          );                                               
         }
 
         for (int iiz = 0 ; iiz < RADIUS_SHARED ; iiz++)
         {
-          fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iiz, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-          fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED + dimz + iiz, RADIUS_SHARED - iiz, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
+          fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume,    \
+                             dimXYHalfNearVolume, dimXYHalfAfterVolume,    \
+                             dimx, dimy, ltidx, ltidy, *ioTile, *ioTile,   \
+                             updateCoeffs, ioTile_IH, ioTile_ID,           \
+                             Curl, ioItem, iiz, iiz,                       \
+                             fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, \
+                             &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull      \
+                           );                                               
 
-          fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, RADIUS_SHARED - iiz, 0, fdtdRefFieldPMLVolumeH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );//RADIUS_SHARED - iiz - that may cause an error due to passing argument inf subrouting by reference and not value --- Need min and max values and not only min value
-          fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz + dimz + RADIUS_SHARED, iiz, 0, fdtdRefFieldPMLVolumeH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
+          fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume,       \
+                             dimXYHalfNearVolume, dimXYHalfAfterVolume,       \
+                             dimx, dimy, ltidx, ltidy, *ioTile, *ioTile,      \
+                             updateCoeffs, ioTile_IH, ioTile_ID,              \
+                             Curl, ioItem,                                    \
+                             RADIUS_SHARED + dimz + iiz, RADIUS_SHARED - iiz, \
+                             fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD,    \
+                             &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull         \
+                           );                                                  
+
+          fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume,     \
+                            dimXYHalfNearVolume, dimXYHalfAfterVolume,     \
+                            ltidx, ltidy, *ioTile, *ioTile, updateCoeffs,  \
+                            ioTile_IH, ioTile_ID, Curl, ioItem,            \
+                            iiz, RADIUS_SHARED - iiz, 0,                   \
+                            fdtdRefFieldPMLVolumeH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull       \
+                          );                                                
+          // `RADIUS_SHARED - iiz' - that may cause an error when passing   \
+          //  an argument in subrouting by reference and not by it's value. \
+          //  It is need `min' and `max' values and not only `min' value.    
+          fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume,     \
+                            dimXYHalfNearVolume, dimXYHalfAfterVolume,     \
+                            ltidx, ltidy, *ioTile, *ioTile, updateCoeffs,  \
+                            ioTile_IH, ioTile_ID, Curl, ioItem,            \
+                            iiz + dimz + RADIUS_SHARED, iiz, 0,            \
+                            fdtdRefFieldPMLVolumeH, fdtdRefFieldPMLMediaD, \
+                            &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull       \
+                          );                                                
         }
+
+        memcpy ( (float *)&ioBuffer[idx_io],                    \
+                 (float *)&ioTile[ltidx * dimThreadsY + ltidy], \
+                 dimzBlock * sizeof(float)                      \
+               );                                                
+
+        /* STEP13 : Thread sets its flag indicating that it completes */
+        /*           evaluating its part of current slice.            */
+        // TODO : I AM HERE (09.03.16) : FIX AN ERROR : All processes block   \
+        //                                               each other and hang:  
+        // TODO (DONE) : FIX AN ERROR!!! Flags have to include both \
+        //                                xy-block and z indexes:    
+        // TODO (DONE) : Find out why there are only thread indices but no \
+        //                block's ones:                                     
+        // TODO (DONE) : We need control stream for synchronization with host:
+        deviceGlobalRefreshFlags[idx_sync] = 1;
+        // 1 - ready, 0 - wait.
       }
+
+      __syncthreads();
+
+      /* STEP24 : Waiting for new slices. */
+      // TODO : How to reset???
+      while ( *deviceWaitWhileLoadingGlobalChunk ) {}
+
+      /* STEP25 : Resetting flag to its "wait" state. */
+      // TODO : Verify if this reset works properly:
+      for ( iz = 0 ; iz < dimzBlock ; iz++ )
+      {
+        idx_sync = dimxBlock*dimyBlock*dimThreadsX*dimThreadsY*iz \
+                   + dimyBlock*dimThreadsX*dimThreadsY*blkx       \
+                   + dimThreadsX*dimThreadsY*blky                 \
+                   + dimThreadsY*ltidx                            \
+                   + ltidy;                                        
+        deviceGlobalRefreshFlags[idx_sync] = 0;  // 1 - ready, 0 - wait.
+      }
+
+      /* STEP26 : Wait until all threads comes to this line. */
+      __syncthreads();//???? TODO : remove??? __syncthreads()
+
+      /* STEP27 : Resetting flag to its "wait" state. */
+      *deviceWaitWhileLoadingGlobalChunk = __any(1);
+
+      //Stop and wait here in GLOBAL loop for new CHUNK \
+      // (synchronize with host)                         
     }
   }
 }
 
-__global__ void FiniteDifferencesKernel(float *output,
-                                        const float *input,/* place snsrc with input data */
-                                        const int dimx,
-                                        const int dimy,
-                                        const int dimz)
-{
-    bool validr = true;
-    bool validw = true;
-    const int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int gtidy = blockIdx.y * blockDim.y + threadIdx.y;
-    const int ltidx = threadIdx.x;
-    const int ltidy = threadIdx.y;
-    const int workx = blockDim.x;
-    const int worky = blockDim.y;
-    __shared__ float tile[k_blockDimMaxY + 2 * RADIUS][k_blockDimX + 2 * RADIUS];
 
-    const int stride_y = dimx + 2 * RADIUS;
-    const int stride_z = stride_y * (dimy + 2 * RADIUS);
-
-    int inputIndex  = 0;
-    int outputIndex = 0;
-
-    // Advance inputIndex to start of inner volume
-    inputIndex += RADIUS * stride_y + RADIUS;
-
-    // Advance inputIndex to target element
-    inputIndex += gtidy * stride_y + gtidx;
-
-    float infront[RADIUS];
-    float behind[RADIUS];
-    float current;
-
-    const int tx = ltidx + RADIUS;
-    const int ty = ltidy + RADIUS;
-
-    // Check in bounds
-    if ((gtidx >= dimx + RADIUS) || (gtidy >= dimy + RADIUS))
-        validr = false;
-
-    if ((gtidx >= dimx) || (gtidy >= dimy))
-        validw = false;
-
-    // Preload the "infront" and "behind" data
-    for (int i = RADIUS - 2 ; i >= 0 ; i--)
-    {
-        if (validr)
-            behind[i] = input[inputIndex];
-
-        inputIndex += stride_z;
-    }
-
-    if (validr)
-        current = input[inputIndex];
-
-    outputIndex = inputIndex;
-    inputIndex += stride_z;
-
-    for (int i = 0 ; i < RADIUS ; i++)
-    {
-        if (validr)
-            infront[i] = input[inputIndex];
-
-        inputIndex += stride_z;
-    }
-
-    // Step through the xy-planes
-
-    // Inside PML pseudoboundaries
-    // TODO: change ix / iy to specific coordinates associated with threads and blocks !!!!
-
-    //TF-SF corrections
-
-    fdtdTFSFsrcE = 
-
-    fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED, 0, fdtdRefFieldWindowMediaHWrapper, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcE, &getFDTDTFSFsrcNull );
-
-    fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED, 0, 0, fdtdRefFieldWindowVolume, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcE, &getFDTDTFSFsrcNull );
-
-    fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED + 1, 0, fdtdRefFieldWindowMediaHWrapper, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcH );
-
-    fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED + 1, 0, 0, fdtdRefFieldWindowVolume, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcH );
-
-    // Field around sources
-
-    for ( int iiz = RADIUS_SHARED ; iiz < RADIUS_SHARED + 2; iiz++ )
-    {
-      fdtdRefSingleXY ( 0, dimXYPostPML, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-      fdtdRefSingleXY ( dimXYPrePML, outerDimx, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, dimx, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-      fdtdRefSingleXY ( dimXYPostPML, dimXYPrePML, 0, dimXYPostPML, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-      fdtdRefSingleXY ( dimXYPostPMLu, dimXYPrePML, dimXYPrePML, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, dimy, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-    }
-
-    for (int iiz = RADIUS_SHARED + 2 ; iiz < dimZPrePML ; iiz++)
-    {
-      fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, 0, fdtdRefFieldWindowMediaHWrapper, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-
-      fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, 0, 0, fdtdRefFieldWindowVolume, fdtdRefFieldWindowMediaDWrapper, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-
-      fdtdRefSingleXY ( 0, dimXYPostPML, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-      fdtdRefSingleXY ( dimXYPrePML, outerDimx, 0, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, ix, dimx, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-      fdtdRefSingleXY ( dimXYPostPML, dimXYPrePML, 0, dimXYPostPML, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, 0, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-      fdtdRefSingleXY ( dimXYPostPMLu, dimXYPrePML, dimXYPrePML, outerDimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iy, dimy, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-    }
-
-    for (int iiz = 0 ; iiz < RADIUS_SHARED ; iiz++)
-    {
-      fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, iiz, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-      fdtdRef4SingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, dimx, dimy, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, RADIUS_SHARED + dimz + iiz, RADIUS_SHARED - iiz, fdtdRefFieldPMLMediaH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-
-      fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz, RADIUS_SHARED - iiz, 0, fdtdRefFieldPMLVolumeH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );//RADIUS_SHARED - iiz - that may cause an error due to passing argument inf subrouting by reference and not value --- Need min and max values and not only min value
-      fdtdRefSingleXY ( dimXYHalfNearVolume, dimXYHalfAfterVolume, dimXYHalfNearVolume, dimXYHalfAfterVolume, ix, iy, *output, *input, updateCoeffs, IH, ID, Curl, iiz + dimz + RADIUS_SHARED, iiz, 0, fdtdRefFieldPMLVolumeH, fdtdRefFieldPMLMediaD, &getFDTDTFSFsrcNull, &getFDTDTFSFsrcNull );
-    }
-
-#pragma unroll 9
-
-    for (int iiz = 0 ; iiz < dimz ; iiz++)
-    {
-        // Advance the slice (move the thread-front)
-        for (int i = RADIUS - 1 ; i > 0 ; i--)
-            behind[i] = behind[i - 1];
-
-        behind[0] = current;
-        current = infront[0];
-#pragma unroll 4
-
-        for (int i = 0 ; i < RADIUS - 1 ; i++)
-            infront[i] = infront[i + 1];
-
-        if (validr)
-            infront[RADIUS - 1] = input[inputIndex];
-
-        inputIndex  += stride_z;
-        outputIndex += stride_z;
-        __syncthreads();
-
-        // Note that for the work items on the boundary of the problem, the
-        // supplied index when reading the halo (below) may wrap to the
-        // previous/next row or even the previous/next xy-plane. This is
-        // acceptable since a) we disable the output write for these work
-        // items and b) there is at least one xy-plane before/after the
-        // current plane, so the access will be within bounds.
-
-        // Update the data slice in the local tile
-        // Halo above & below
-        if (ltidy < RADIUS)
-        {
-            tile[ltidy][tx]                  = input[outputIndex - RADIUS * stride_y];
-            tile[ltidy + worky + RADIUS][tx] = input[outputIndex + worky * stride_y];
-        }
-
-        // Halo left & right
-        if (ltidx < RADIUS)
-        {
-            tile[ty][ltidx]                  = input[outputIndex - RADIUS];
-            tile[ty][ltidx + workx + RADIUS] = input[outputIndex + workx];
-        }
-
-        tile[ty][tx] = current;
-        __syncthreads();
-
-        // Compute the output value
-        float value = stencil[0] * current;
-#pragma unroll 4
-
-        for (int i = 1 ; i <= RADIUS ; i++)
-        {
-            value += stencil[i] * (infront[i-1] + behind[i-1] + tile[ty - i][tx] + tile[ty + i][tx] + tile[ty][tx - i] + tile[ty][tx + i]);
-        }
-
-        // Store the output value
-        if (validw)
-            output[outputIndex] = value;
-    }
-}
