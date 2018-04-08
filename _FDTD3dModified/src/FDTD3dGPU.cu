@@ -807,16 +807,41 @@ bool fdtdGPU ( int argc, char **argv,                                     \
                                          lengthCoeffs     \
                   )                    );                  
 
-  // TODO : I AM HERE (23.11.16) : Continue merging source code:
+  // TODO : Multiply on correct values everywhere!!
+  //         sliceSize, chunkSize, blockSize, threadSize. etc.
+  argsKPT.bContinue = bContinue;
+  argsKPT.deviceWaitWhileLoadingGlobalChunk = \
+   deviceWaitWhileLoadingGlobalChunk;          
+  argsKPT.deviceGlobalRefreshFlags = deviceGlobalRefreshFlags;
+  argsKPT.buffer = ioBuffer;
+  argsKPT.global_now = globalClockGPU;
 
-   argsKPT = { .dimx = dimx,\
-               .dimy = dimy,\
-               .dimz = dimz,\
-               .input = input,\
-               .dimGrid = dimGrid,\
-               .dimBlock = dimBlock,\
-               .maxSharedMemPerBlock = maxSharedMemPerBlock; \
-               .output = output; };
+  // TODO : Check the order of parameters:
+
+#ifdef DEBUG_INFO
+
+  argsRMC = new ReloadMemChunkArgs_t                         \
+                (                                            \
+                  maxChunks, dimSlice, sliceSize, chunkSize, \
+                  timesteps, 0,                              \
+                  bufferSrc, bufferDst, ioBuffer,            \
+                  hostWait4RefreshGlobalSlice,               \
+                  debugFlags                                 \
+                );                                            
+
+#else
+
+  argsRMC = new ReloadMemChunkArgs_t                         \
+                (                                            \
+                  maxChunks, dimSlice, sliceSize, chunkSize, \
+                  timesteps, 0,                              \
+                  bufferSrc, bufferDst, ioBuffer,            \
+                  hostWait4RefreshGlobalSlice                \
+                );                                            
+
+#endif
+
+  // TODO : I AM HERE (23.11.16) : Continue merging source code:
 
    // TODO : Remove half-steps:
    // In timeframe we need to advance by half-timestep due to different

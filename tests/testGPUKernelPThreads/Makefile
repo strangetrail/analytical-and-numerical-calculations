@@ -204,7 +204,8 @@ LIBRARIES :=
 SAMPLE_ENABLED := 1
 
 # Gencode arguments
-SMS ?= 20 30 35 37 50 52
+#SMS ?= 20 30 35 37 50 52##  sm_20, sm_21, compute_20 were deprecated.
+SMS ?= 30 35 37 50 52
 
 ifeq ($(SMS),)
 $(info >>> WARNING - no SM architectures have been specified - waiving sample <<<)
