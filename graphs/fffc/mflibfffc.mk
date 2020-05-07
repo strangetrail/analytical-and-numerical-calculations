@@ -7,13 +7,15 @@
 #FLAGS = -Iinclude -std=c++11
 #
 #
-FLAGS = -std=c++11 -gdwarf-4 -O0
+#MKFLAGS_DEBUG:=-gdwarf-4 -ggdb3 -g3
+#MKFLAGS_EXE_HARDENING:=-fpie -Wl,-pie
 #
 #
 ##FLAGS = -std=c99
 #
 #
-CFLAGS = -pedantic -Wall -Wextra -Iinclude -ggdb3
+MKCXXFLAGS_DEFAULT:=-pedantic -Wall -Wextra
+MKCXXFLAGS:=-std=c++14 $(CXXFLAGS) $(CXXFLAGS_DEFAULT)
 #
 #
 ##CFLAGS = -pedantic -Wall -Wextra
@@ -45,12 +47,12 @@ alllibfffc: $(myPATH)fffc.o $(myPATH)libCZTcstm.o $(myPATH)libFFTcstm.o $(myPATH
 ##$(myPATH)libfffc.so: $(myPATH)fffc.o $(myPATH)libCZTcstm.o $(myPATH)libFFTcstm.o
 ##	g++ $(FLAGS) -shared -o $(myPATH)libfffc.so $(myPATH)fffc.o $(myPATH)libCZTcstm.o $(myPATH)libFFTcstm.o
 $(myPATH)fffc.o: $(myPATH)fffc.cpp
-	g++ -c -g3 $(FLAGS) $(CFLAGS) $(myPATH)fffc.cpp -o $(myPATH)fffc.o
+	g++ -c $(MKCXXFLAGS) $(myPATH)fffc.cpp -o $(myPATH)fffc.o
 $(myPATH)libCZTcstm.o: $(myPATH)libCZTcstm.cpp
-	g++ -c -g3 $(FLAGS) $(CFLAGS) $(myPATH)libCZTcstm.cpp -o $(myPATH)libCZTcstm.o
+	g++ -c $(MKCXXFLAGS) $(myPATH)libCZTcstm.cpp -o $(myPATH)libCZTcstm.o
 $(myPATH)libFFTcstm.o: $(myPATH)libFFTcstm.cpp
-	g++ -c -g3 $(FLAGS) $(CFLAGS) $(myPATH)libFFTcstm.cpp -o $(myPATH)libFFTcstm.o
+	g++ -c $(MKCXXFLAGS) $(myPATH)libFFTcstm.cpp -o $(myPATH)libFFTcstm.o
 $(myPATH)libUtils.o: $(myPATH)libUtils.cpp
-	g++ -c -g3 $(FLAGS) $(CFLAGS) $(myPATH)libUtils.cpp -o $(myPATH)libUtils.o
+	g++ -c $(MKCXXFLAGS) $(myPATH)libUtils.cpp -o $(myPATH)libUtils.o
 cleanlibfffc:
 	rm -vf $(DIRECT)FFT.elf $(DIRECT)FFT.o $(INVERSE)FFT.elf $(INVERSE)FFT.o $(myPATH)fffc.elf $(myPATH)fffc.o $(myPATH)*output*.* $(myPATH)check.m $(myPATH)res1.txt $(myPATH)res2.txt $(myPATH)libfffc.so $(myPATH)fffc.o $(myPATH)libCZTcstm.o $(myPATH)libFFTcstm.o $(myPATH)libUtils.o
