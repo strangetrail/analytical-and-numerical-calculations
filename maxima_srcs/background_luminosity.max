@@ -1,0 +1,259 @@
+/*
+# vi:syntax=maxima
+*/
+
+/*
+background_luminosity.max
+*/
+
+
+load ("ctensor");
+load ("itensor");
+
+batchload ("../common/mintegrate.hmax");
+
+
+/* Constants: */
+candella_watt_rel : 1/683;
+                    /* W */
+candella_watt_rel : ev ( candella_watt_rel, numer );
+
+/* Parameters: */
+/* The maximal value of background luminocity during the clean bright day: */
+luminocity_topDay : 12000.0; /* ROSGIDROMET */
+                    /* cd * m^(-2) */
+/* Receiver lens focal length: */
+f_0 : 0.02; /* `os@f_in' */
+      /* m */
+/* Distance between receiver lens plane and window aperture *
+ *  inside plane internal optical system:                   */
+L   : 0.02;
+      /* m */
+/* Window size (edge of a square): */
+W   : 0.07;
+      /* m */
+/* Photodiode square area: */
+area_squarePD : 7.5 /* mm^2 */ * (0.001)^2;
+                /* m^2 */
+area_squarePD : ev ( area_squarePD, numer );
+/* Lens radius: */
+rLens : 0.02;
+        /* m */
+
+/* TODO : Fix the same error in other source file: */
+/* Distance from the receiver lens to the pre-focal plane *
+ *  where beam spot takes appropriate sizes smaller       *
+ *  than a photodiode quadrature:                         */
+L_0 : ( 1 - sqrt ( 0.80*area_squarePD ) / rLens ) * f_0;
+L_0 : ev ( L_0, numer );
+/* Height of the photodiode square area: */
+r_0 : sqrt ( area_squarePD ) / 2;
+r_0 : ev ( r_0, numer );
+/* Input window radius (incircle of square window comparable *
+ *  with barrel face size)                                   */
+r1  : W/2;
+r1 : ev ( r1, numer );
+r2  : r1 * sqrt (2);
+r2 : ev ( r2, numer );
+
+/* Alternatively you can specify `r_1' and `r_2', which are the same values *
+ *  instead of `r_3' above. This will give FOV angle constrained            *
+ *  with input lens of smaller RADIUS than available for given input widow  *
+ *  aperture radius. `r_1' and `r_2' would not be larger than yielded `r_1' *
+ *  with known `r_3':                                                       */
+use_lens_aperture_bounds : false;
+
+if ( use_lens_aperture_bounds )
+then block
+(
+	r_1 : rLens,
+	r_2 : r_1
+)
+else
+	r_3 : r1;
+
+r_1;  /* GNU Maxima batch output. */
+r_2;  /* GNU Maxima batch output. */
+r_3;  /* GNU Maxima batch output. */
+
+
+/* Declaring system of equations for matrix optics: */
+eq1_r0_r1 : r_1       = r_0 + L_0*r_0_prime;
+eq2_r0_r1 : r_1_prime = r_0_prime;
+eq1_r1_r2 : r_2       = r_1;
+eq2_r1_r2 : r_2_prime = r_1_prime - r_1/f_0;
+eq1_r2_r3 : r_3       = r_2 + L*r_2_prime;
+eq2_r2_r3 : r_3_prime = r_2_prime;
+/* Searching for a solution of linear equations: */
+/* If you have specified `r_1' and `r_2' as known values you need           *
+ *  to remove `eq1_r1_r2' from system of equations and replace `r_1', `r_2' *
+ *  with `r_3' in unknowns:                                                 */
+if ( use_lens_aperture_bounds )
+then block
+(
+	abcd_equation : [           \
+                   eq1_r0_r1, \
+                   eq2_r0_r1, \
+                   eq2_r1_r2, \
+                   eq1_r2_r3, \
+                   eq2_r2_r3  \
+                  ],           
+	abcd_unknowns : [           \
+                   r_0_prime, \
+                   r_1_prime, \
+                   r_2_prime, \
+                   r_3_prime, \
+                   r_3        \
+                  ]            
+)
+else block
+(
+	abcd_equation : [           \
+                   eq1_r0_r1, \
+                   eq2_r0_r1, \
+                   eq1_r1_r2, \
+                   eq2_r1_r2, \
+                   eq1_r2_r3, \
+                   eq2_r2_r3  \
+                  ],           
+	abcd_unknowns : [           \
+                   r_0_prime, \
+                   r_1_prime, \
+                   r_2_prime, \
+                   r_3_prime, \
+                   r_1,       \
+                   r_2        \
+                  ]            
+);
+solution_rr : linsolve ( abcd_equation, abcd_unknowns );
+
+/* `rr1' or `rr2' - is the maximal input lens radius: */
+if ( not use_lens_aperture_bounds )
+then block
+(
+	rr1 : ev ( rhs ( solution_rr[5] ), numer ),
+	rr2 : ev ( rhs ( solution_rr[6] ), numer )
+);
+rr1;  /* GNU Maxima batch output. */
+rr2;  /* GNU Maxima batch output. */
+
+/* Half FOV tangent: */
+rr3_prime : rhs ( solution_rr[4] );
+/* Half FOV: */
+phi_max : ev ( atan (rr3_prime), numer );
+/* Half FOV in degrees: */
+phi_degs : ev ( 180/%pi * phi_max, numer );
+
+/* X and Y are taken as a parametric curve independent variables: */
+x : rho * sin(theta) * cos(phi);
+y : rho * sin(theta) * sin(phi);
+z : rho * cos(theta);
+/* Surface radius-vecotr: */
+r : [x, y, z];
+
+/* Partial derivatives of r: */
+/*
+f    = f ( [x[1], x[2], ... , x[n]] )
+x[i] = x ( [O[1], O[2], ... , O[n]] )
+O[i] = O ( [x[1], x[2], ... , x[n]] )
+*/
+/* Full derivative: */
+/*              n                       *
+ *            -----                     *
+ *            \                         *
+ *  d f        \     d f        d x[i]  *
+ * -------- =   |   -------- * -------- *
+ *  d O[j]     /     d x[i]     d O[j]  *
+ *            /                         *
+ *            -----                     *
+ *             i=1                      */
+O : [rho, phi, theta];
+derivative_equations : makelist                                  \
+                       (                                         \
+                         df_dO[j] = sum ( df_dx[i]               \
+                                          * diff ( r[i], O[j] ), \
+                                          i,                     \
+                                          1, 3                   \
+                                        ),                       \
+                         j,                                      \
+                         1, 3                                    \
+                       );                                         
+unknown_variables : makelist ( df_dx[i], i, 1, 3 );
+/* Searching                                               *
+ *  df_dx = df_dx ( [df_dO[1], df_dO[2], ... , df_dO[n]] ) *
+ *  as a solution of system of linear equations:           */
+O_x_sols : linsolve ( derivative_equations, unknown_variables );
+/* Inserting differential operators instead of a df_dO[i] *
+ *  (r - is a vector):                                    */
+df_dO[1] : diff ( r, rho );
+df_dO[2] : diff ( r, phi );
+df_dO[3] : diff ( r, theta );
+/* Surface element cartesian derivatives in sherical basis: */
+dr_dx : ev ( rhs ( O_x_sols[1] ) );
+dr_dy : ev ( rhs ( O_x_sols[2] ) );
+
+cross_prod : makelist ( sum ( sum ( levi_civita ( [i, j, k] ) \
+                                    * dr_dx[i]                \
+                                    * dr_dy[j],               \
+                                    i,                        \
+                                    1, 3                      \
+                                  ),                          \
+                              j,                              \
+                              1, 3                            \
+                            ),                                \
+                        k,                                    \
+                        1, 3                                  \
+                      );                                       
+
+surface_element : fullratsimp ( sqrt ( sum ( cross_prod[k]^2, k, 1, 3 ) ) );
+
+jacobian_spherical : rho^2 * sin (theta);
+
+quadrature_spherical : 4 * integrate ( integrate ( surface_element       \
+                                                   * jacobian_spherical, \
+                                                   phi,                  \
+                                                   0.0,                  \
+                                                   phi_max               \
+                                                 ),                      \
+                                       theta,                            \
+                                       0.0,                              \
+                                       %pi/2                             \
+                                     );                                   
+
+/* Taking a radius as optical FOV bounding edge: */
+rho : r1 / sin (phi_max);
+/* Numerical results: */
+quadrature_spherical : ev ( quadrature_spherical, numer );
+jacobian_spherical : ev ( jacobian_spherical, numer );
+
+/* Full sphere quadrature test: */
+/*
+test : ev ( quadrature_spherical/%pi, numer );
+*/
+
+quadrature_spherical : 4 * ev  ( ''( mintegrate ( surface_element       \
+                                                  * jacobian_spherical, \
+                                                  [theta, phi],         \
+                                                  [0.0, 0.0],           \
+                                                  [%pi/2, phi_max],     \
+                                                  %quad_qags,           \
+                                                  [epsrel = 1.0e-6]     \
+                                   )            ),                      \
+                                 numer                                  \
+                               );                                        
+quadrature_spherical : ev ( quadrature_spherical, numer );
+
+/* Full sphere quadrature test: */
+/*
+test : ev ( quadrature_spherical/%pi, numer );
+*/
+
+solid_angle : quadrature_spherical / rho^2;
+
+background_irradiance_topday : ev ( luminocity_topDay * candella_watt_rel \
+                                    * solid_angle                         \
+                                    * 1000/(100*100),                     \
+                                    numer                                 \
+                                  );                                       
+
+printf ( true, "~%~%All done.~%~%" ) $
