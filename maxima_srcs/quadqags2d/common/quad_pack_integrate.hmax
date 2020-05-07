@@ -1,0 +1,223 @@
+%mintegrate ( integrand, variables, llimits, ulimits, method, opts ) :=
+	if ( length ( variables ) = 1 )
+	then
+		funmake ( method, append ( [integrand,           \
+		                            first ( variables ), \
+		                            first ( llimits ),   \
+		                            first ( ulimits )    \
+		                           ],                    \
+		                           opts                  \
+		        )                )                        
+	else
+		%mintegrate ( apply ( 'lambda,                                  \
+		                      [[second ( variables )],                  \
+		                       funmake ( method,                        \
+		                                 append ( [integrand,           \
+		                                           first ( variables ), \
+		                                           first ( llimits ),   \
+		                                           first ( ulimits )    \
+		                                          ],                    \
+		                                          opts                  \
+		                               )        )                       \
+		                      ]                                         \
+		                    ),                                          \
+		              rest ( variables ),                               \
+		              rest ( llimits ),                                 \
+		              rest ( ulimits ),                                 \
+		              method,                                           \
+		              opts                                              \
+		            );                                                   
+
+mintegrate ( integrand, variables, llimits, ulimits, method, opts ) :=
+	%mintegrate ( apply ( 'lambda, [[first ( variables )], integrand] ), \
+	              variables, llimits, ulimits, method, opts              \
+	            );                                                        
+
+
+/*
+mdefint ( integrand, variables, llimits, ulimits ) :=
+	subst ( lambda= lambda ( [u, v], v ), mintegrate ( integrand,  \
+	                                                   variables,  \
+	                                                   llimits,    \
+	                                                   ulimits,    \
+	                                                   'integrate, \
+	                                                   []          \
+	      )                                          );             
+*/
+
+%quad_qags ( e, t, a, b, [opts] ) :=
+	first ( apply ( quad_qags, append ( [e, t, a, b], opts ) ) );
+
+%quad_qag ( e, t, a, b, [opts] ) :=
+	first ( apply ( quad_qag, append ( [e, t, a, b, thekey], opts ) ) );
+
+
+/*
+mdefint ( x*y*z, [x, y, z], [0, 1, 2], [1, 2, 3] );
+out7 : ''%;
+*/
+display2d:false;
+/*
+out7, numer;
+*/
+
+/* Подставлять сюда, вместо x*y*z, пределы - нижние, потом - верхние */
+/*  в порядке переменных, указанных перед пределами:                 */
+/*
+integratethis : mintegrate ( (x+idx0)*y*z,    \
+	                             [x, y, z],      \
+	                             [0, 1, 2],      \
+	                             [1, 2, 3],      \
+	                             %quad_qags,     \
+	                             [epsrel = 1e-5] \
+	                           );
+*/
+
+/*theresult : ''integratethis;
+
+printf ( true, "~%~t~%~a~%~t~%", theresult );*/
+
+/*
+for idx0 : 0 thru 100 do block
+(
+	res : ev ( ''(integratethis), numer ),
+	printf ( true, "~%~t~%~a~%~t~%", res )
+);
+*/
+
+/*
+''%;
+*/
+printf ( true, "done" )$
+
+
+/*
+
+EXAMPLES
+
+
+		plot3d ( mintegrate ( integrand_irradiance_displ_d ( xx, yy,             \
+		                                                     omega, z_reflector  \
+		                                                   ),                    \
+		                      [xx, yy, t],                                       \
+		                      [-window_side_local/2, -window_side_local_y/2, 0], \
+		                      [window_side_local/2, window_side_local_y/2, T],   \
+		                      %quad_qags,                                        \
+		                      [epsrel = 1.0e-5]                                  \
+		                    ) / T                                                \
+		         + mintegrate ( integrand_irradiance_d ( xx,                     \
+		                                                 window_side_local_y/2,  \
+		                                                 omega, z_reflector, 0.0 \
+		                                               )                         \
+		                        * window_side_local_y_diff/2,                    \
+		                        [xx, t],                                         \
+		                        [-window_side_local/2, 0],                       \
+		                        [window_side_local/2, T],                        \
+		                        %quad_qags,                                      \
+		                        [epsrel = 1.0e-5]                                \
+		                      ) / T                                              \
+		         - mintegrate ( integrand_irradiance_d ( xx,                     \
+		                                                 -window_side_local_y/2, \
+		                                                 omega, z_reflector, 0.0 \
+		                                               )                         \
+		                        * (-1) * window_side_local_y_diff/2,             \
+		                        [xx, t],                                         \
+		                        [-window_side_local/2, 0],                       \
+		                        [window_side_local/2, T],                        \
+		                        %quad_qags,                                      \
+		                        [epsrel = 1.0e-5]                                \
+		                      ) / T,                                             \
+		         [omega, %pi/8, 5*%pi],                                          \
+		         [z_reflector, 200.0, z_reflector_fixed],                        \
+		         [z, 0.0, 7.5e-4],                                               \
+		         /*[z, 0.0, 50000*resolutionI],*/                                \
+		         [grid, 20, 20],                                                 \
+		         [palette, [gradient, red, orange, yellow, green]],              \
+		         [color_bar_tics, 50],                                           \
+		         [plot_format, gnuplot],                            \
+		         [title, "Gaussian irradiance transverse profile"]               \
+		       )                                                                  
+
+internal Maxima QUADPACK
+
+						irr_d_Samples[i-1, j-1] : ev ( ''( mintegrate                    \
+						                                   (                             \
+						                                     integrand_irradiance_d_xy   \
+						                                     (                           \
+						                                       xx, yy                    \
+						                                     ),                          \
+						                                     [xx, yy],                   \
+						                                     [-window_side_local/2,      \
+						                                      -window_side_local_y_val/2 \
+						                                     ],                          \
+						                                     [window_side_local/2,       \
+						                                      window_side_local_y_val/2  \
+						                                     ],                          \
+						                                     %quad_qags,                 \
+						                                     [epsrel = 1.0e-6]           \
+						                                   )                             \
+						                                 ),                              \
+						                               numer                             \
+						                             )                                    
+
+
+
+
+	integrand2 :
+	  mintegrate ( integrand_irradiance ( xx, yy ),              \
+	               [xx, yy],                                     \
+	               [-window_side_local/2, -window_side_local/2], \
+	               [window_side_local/2, window_side_local/2],   \
+	               %quad_qags,                                   \
+	               [epsrel = 1.0e-5]                             \
+	             ),                                               
+
+	integrand2_test :                                     \
+	  mintegrate ( integrand_irr_amplitude_test ( rrho ), \
+	               [rrho],                                \
+	               [0],                                   \
+	               [spot_size ( ehmp_num, 5.0e-2 )],      \
+	               %quad_qags,                            \
+	               [epsrel = 1.0e-5]                      \
+	             ),  
+
+
+	out_integrand2_test_simple : 2*%pi * quad_qags                           \
+	                                     ( integrand_irr_amplitude_test_frs, \
+	                                       rrho,                             \
+	                                       0,                                \
+	                                       spot_size ( ehmp, 5.0e-2 )        \
+	                                     ),                                   
+
+	integrand2_gaussian :                                        \
+	  mintegrate ( integrand_irradiance_gaussian (xx, yy ),      \
+	               [xx, yy],                                     \
+	               [-window_side_local/2, -window_side_local/2], \
+	               [window_side_local/2, window_side_local/2],   \
+	               %quad_qags,                                   \
+	               [epsrel = 1.0e-5]                             \
+	             ),                                               
+
+		integral_out_numer : 2*%pi * quad_qags ( integrand_irr_numer,           \
+		                                         rho,                           \
+		                                         0,                             \
+		                                         spot_size ( ehmp_num, 5.0e-2 ) \
+		                                       ),                                
+
+
+LISP <-> GSL C/C++ CFFI
+
+
+						irr_d_Samples[i-1, j-1] : quadqags2d ( l_lower_x, l_lower_y, \
+						                                       l_upper_x, l_upper_y, \
+						                                       integrand_parameters  \
+						                                     )                        
+
+
+
+
+
+
+
+
+*/

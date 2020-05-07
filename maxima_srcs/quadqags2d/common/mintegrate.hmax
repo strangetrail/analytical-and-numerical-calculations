@@ -1,0 +1,52 @@
+/*
+# vi:syntax=maxima
+*/
+
+
+
+	mintegrate ( integrand, variables, llimits, ulimits, method, opts ) :=
+		%mintegrate ( apply ( 'lambda, [[first ( variables )], integrand] ), \
+		              variables, llimits, ulimits, method, opts              \
+		            );                                                        
+
+	%mintegrate ( integrand, variables, llimits, ulimits, method, opts ) :=
+		if ( length ( variables ) = 1 )
+		then
+			funmake ( method, append ( [integrand,           \
+			                            first ( variables ), \
+			                            first ( llimits ),   \
+			                            first ( ulimits )    \
+			                           ],                    \
+			                           opts                  \
+			        )                )                        
+		else
+			%mintegrate ( apply ( 'lambda,                                  \
+			                      [[second ( variables )],                  \
+			                       funmake ( method,                        \
+			                                 append ( [integrand,           \
+			                                           first ( variables ), \
+			                                           first ( llimits ),   \
+			                                           first ( ulimits )    \
+			                                          ],                    \
+			                                          opts                  \
+			                               )        )                       \
+			                      ]                                         \
+			                    ),                                          \
+			              rest ( variables ),                               \
+			              rest ( llimits ),                                 \
+			              rest ( ulimits ),                                 \
+			              method,                                           \
+			              opts                                              \
+			            );                                                   
+
+	mdefint ( integrand, variables, llimits, ulimits ) :=
+		subst ( lambda= lambda ( [u, v], v ), mintegrate ( integrand,  \
+		                                                   variables,  \
+		                                                   llimits,    \
+		                                                   ulimits,    \
+		                                                   'integrate, \
+		                                                   []          \
+		      )                                          );             
+
+	%quad_qags ( e, t, a, b, [opts] ) :=
+		first ( apply ( quad_qags, append ( [e, t, a, b], opts ) ) );

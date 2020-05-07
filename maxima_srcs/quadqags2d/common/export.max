@@ -1,0 +1,46 @@
+/*
+# vi:syntax=maxima
+*/
+
+/* export.max */
+
+
+batchload ( "common/utils.hmax" );
+
+
+mainr () := block
+(
+	local          \
+	(              \
+	  r_1, r_2,    \
+	  z,           \
+	  f,           \
+	  eq1, eq2,    \
+	  streamExport \
+	),              
+
+	texput ( r_1, "r_1" ),
+	texput ( r_2, "r_2" ),
+
+	depends ( r_1, [z] ),
+	depends ( r_2, [z] ),
+
+	streamExport : openw ( "export.tex" ),
+
+	eq1 : r_2 = r_1,
+	eq2 : diff (r_2, z) = - 1/f * r_1 + diff ( r_1, z ),
+
+	printTexDocBGN ( streamExport ),
+	printTexDocTEXT ( streamExport, " " ),
+
+	printTexDocTEXT ( streamExport, "AB row" ),
+	printTexExpressionInline ( streamExport, eq1 ),
+	printTexDocTEXT ( streamExport, "CD row" ),
+	printTexExpressionInline ( streamExport, eq2 ),
+
+	printTexDocEND ( streamExport ),
+	close ( streamExport ),
+
+	return (done)
+);
+mainr()$
