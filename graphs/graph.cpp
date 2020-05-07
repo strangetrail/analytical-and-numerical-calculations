@@ -6,22 +6,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-// #define GLEW_STATIC
-// #define GL_GLEXT_PROTOTYPES
-#include <GL/glew.h>
-#include <GL/glut.h>
-// #include <GL/freeglut.h>
+#include <SDL2/SDL.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <ft2build.h>
-#include FT_FREETYPE_H
+//#include <ft2build.h>
+//#include FT_FREETYPE_H
 #include "./fffc/libUtils.h"
 #include "./common/shader_utils.h"
 #include "./fffc/libFFTcstm.h"
 #include "./fffc/libCZTcstm.h"
 #include "./fffc/fffc.h"
 //
+
 #define EPSILON_0 0.88541878176e-11L // F / m
 /*
    Default values (1/3 of longest side of 1024x768 0.9e-6 m pitch SLM LC cell, gren DPSS, air)
@@ -31,7 +28,11 @@
 #define EPSILON_R 1.00058986L
 #define DELTA_EPSILON_R 0.5e-6L
 #define MU 1.25663753e-6 // H / m
-//
+
+SDL_Window *application_window;
+SDL_Renderer *SDLGL_renderer;
+SDL_GLContext sdl_main_context;
+
 struct point_text {
 	GLfloat x;
 	GLfloat y;
@@ -67,8 +68,10 @@ GLint attribute_coord_text;
 GLint uniform_tex;
 GLint uniform_color_text;
 //text.
+/*
 FT_Library ft;
 FT_Face face;
+*/
 const char *fontfilename;
 float offset_x = 0.0;
 float offset_y = 0.0;
@@ -296,19 +299,23 @@ int init_resources()
 //text:
 //
 /* Initialize the FreeType2 library */
+/*
 if (FT_Init_FreeType(&ft)) {
 fprintf(stderr, "Could not init freetype library\n");
 return 0;
 }
+*/
 /* Load a font */
+/*
 fontfilename = "FreeSans.ttf";
 if (FT_New_Face(ft, fontfilename, 0, &face)) {
 fprintf(stderr, "Could not open font %s\n", fontfilename);
 return 0;
 }
+*/
 //
 //text.
-	program = create_program("graph.v.glsl", "graph.f.glsl");
+	program = create_program("graph.test2.v.glsl", "graph.test2.f.glsl");
 	if (program == 0)
 		return 0;
 	attribute_coord2d = get_attrib(program, "coord2d");
@@ -483,7 +490,7 @@ for ( short i = 0; i < 2; i++ )
 			x2 = x1;
 			y2 = y1;
 //		// TEST.
-			double *tmpRef = rotateXY<double>( sin225, cos225, x1, y1, 1, qRotation );
+			double *tmpRef = rotateXY( sin225, cos225, x1, y1, 1, qRotation );
 			x1 = tmpRef[0];
 			y1 = tmpRef[1];
 			getHEvector( TE, probe, x1, y1, 30.0, EH );
@@ -586,7 +593,7 @@ const char *debugOutputFileName = "debugTestOutput_CZT",
            *fileFormat;
 //
 // DEBUG.
-fileName = ( char * )malloc( 5 + strlen( debugOutputFileName ) );
+fileName = ( char * )malloc( 6 + strlen( debugOutputFileName ) );
 fileFormat = (char *) debugFormatPrecision;
 //
 sprintf( fileName, "%s%s%s", debugOutputFileName, "0", ".txt" );
@@ -849,8 +856,9 @@ glm::mat4 viewport_transform(float x, float y, float width, float height, float 
  * The pixel coordinates that the FreeType2 library uses are scaled by (sx, sy).
  */
 void render_text(const char *text, float x, float y, float sx, float sy) {
-	const char *p;
-	FT_GlyphSlot g = face->glyph;
+  (void) text; (void) sx; (void) sy; (void) x; (void) y;
+	//const char *p;
+	//FT_GlyphSlot g = face->glyph;
 
 	/* Create a texture that will be used to hold one "glyph" */
 	GLuint tex;
@@ -876,16 +884,17 @@ void render_text(const char *text, float x, float y, float sx, float sy) {
 	glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
 	glVertexAttribPointer(attribute_coord_text, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
-	/* Loop through all characters */
+/*
+	// Loop through all characters
 	for (p = text; *p; p++) {
-		/* Try to load and render the character */
+		// Try to load and render the character
 		if (FT_Load_Char(face, *p, FT_LOAD_RENDER))
 			continue;
 
-		/* Upload the "bitmap", which contains an 8-bit grayscale image, as an alpha texture */
+		// Upload the "bitmap", which contains an 8-bit grayscale image, as an alpha texture
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, g->bitmap.width, g->bitmap.rows, 0, GL_ALPHA, GL_UNSIGNED_BYTE, g->bitmap.buffer);
 
-		/* Calculate the vertex and texture coordinates */
+		// Calculate the vertex and texture coordinates
 		float x2 = x + g->bitmap_left * sx;
 		float y2 = -y - g->bitmap_top * sy;
 		float w = g->bitmap.width * sx;
@@ -898,15 +907,15 @@ void render_text(const char *text, float x, float y, float sx, float sy) {
 			{x2 + w, -y2 - h, 1, 1},
 		};
 
-		/* Draw the character on the screen */
+		// Draw the character on the screen
 		glBufferData(GL_ARRAY_BUFFER, sizeof box, box, GL_DYNAMIC_DRAW);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-		/* Advance the cursor to the start of the next character */
+		// Advance the cursor to the start of the next character
 		x += (g->advance.x >> 6) * sx;
 		y += (g->advance.y >> 6) * sy;
 	}
-
+*/
 	glDisableVertexAttribArray(attribute_coord_text);
 	glDeleteTextures(1, &tex);
 }
@@ -914,12 +923,12 @@ void render_text(const char *text, float x, float y, float sx, float sy) {
 void display()
 {
 //text:
-	float sx = 1.0 / glutGet(GLUT_WINDOW_WIDTH);
-	float sy = 1.0 / glutGet(GLUT_WINDOW_HEIGHT);
+	//float sx = 1.0 / 640;
+	//float sy = 1.0 / 480;
 //text.
 //axis:
-	float window_width = glutGet(GLUT_WINDOW_WIDTH);// Was unused for some reason lately.
-	float window_height = glutGet(GLUT_WINDOW_HEIGHT);// Was unused for some reason lately.
+	//float window_width = 640;// Was unused for some reason lately.
+	//float window_height = 480;// Was unused for some reason lately.
 //axis.
 //		//graph reevaluation:
 			if ( switch_scale )
@@ -958,7 +967,7 @@ void display()
 			glUniform1i(uniform_mytexture, 0);
 			glm::mat4 model;
 			if (rotate)
-				model = glm::rotate(glm::mat4(1.0f), float (glutGet(GLUT_ELAPSED_TIME) / 1000.0), glm::vec3(0.0f, 0.0f, 1.0f));
+				model = glm::rotate(glm::mat4(1.0f), float ( SDL_GetTicks () / 1000.0), glm::vec3(0.0f, 0.0f, 1.0f));
 			else
 				model = glm::mat4(1.0f);
 			glm::mat4 view = glm::lookAt(glm::vec3(0.0, 2.1, 2.1), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
@@ -1064,29 +1073,29 @@ glUniformMatrix4fv( uniform_vertex_transform_textX, 1, GL_FALSE, glm::value_ptr(
 	//GLfloat red[4] = { 1, 0, 0, 1 };// Unused.
 	//GLfloat transparent_green[4] = { 0, 1, 0, 0.5 };// Unused.
 	/* Set font size to 48 pixels, color to white */
-	FT_Set_Pixel_Sizes(face, 0, 48);
+	//FT_Set_Pixel_Sizes(face, 0, 48);
 	glUniform4fv(uniform_color_text, 1, white);
 	/* Effects of alignment */
-	render_text("-1", -1/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
-	render_text("0", 0/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
-	render_text("Y", 0/* + 2 * sx*/, -1 - 2.1 * face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
-	render_text("1", 1/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
+	//render_text("-1", -1/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
+	//render_text("0", 0/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
+	//render_text("Y", 0/* + 2 * sx*/, -1 - 2.1 * face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
+	//render_text("1", 1/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
 //
 // additional transform:
 //
 	glUniform1i( uniform_switch_transform, (GLint)7 );
-	render_text("0", 0/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
-	render_text("X", 0/* + 2 * sx*/, -1 - 2.1 * face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
+	//render_text("0", 0/* + 2 * sx*/, -1 - face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
+	//render_text("X", 0/* + 2 * sx*/, -1 - 2.1 * face->glyph->bitmap.rows * sy - 1.0 / ( border + ticksize )/* + 2 * sy*/, sx, sy);
 	glUniform1i( uniform_switch_transform, (GLint)2 );
 //
 // additional transform.
 //
 /*
-	render_text("The Misaligned Fox Jumps Over The Lazy Dog", -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
+	//render_text("The Misaligned Fox Jumps Over The Lazy Dog", -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
 */
 	/* Scaling the texture versus changing the font size */
 /*
-	render_text("The Small Texture Scaled Fox Jumps Over The Lazy Dog", -1 + 8 * sx, 1 - 175 * sy, sx * 0.5, sy * 0.5);
+	//render_text("The Small Texture Scaled Fox Jumps Over The Lazy Dog", -1 + 8 * sx, 1 - 175 * sy, sx * 0.5, sy * 0.5);
 	FT_Set_Pixel_Sizes(face, 0, 24);
 	render_text("The Small Font Sized Fox Jumps Over The Lazy Dog", -1 + 8 * sx, 1 - 200 * sy, sx, sy);
 	FT_Set_Pixel_Sizes(face, 0, 48);
@@ -1129,12 +1138,12 @@ glUniformMatrix4fv( uniform_vertex_transform_textX, 1, GL_FALSE, glm::value_ptr(
 //aux.
 	glUniform1i( uniform_switch_color, (GLint)1 );
 //switch_color.
-	float pixel_x, pixel_y;
+	float pixel_x = 0.0, pixel_y = 0.0;
 	/* ---------------------------------------------------------------- */
 	/* Draw the borders */
 	// Calculate a transformation matrix that gives us the same normalized device coordinates as above
 	//glm::mat4 transform =// Unused (get its value from the function below).
-	viewport_transform(border + ticksize, border + ticksize, window_width - border * 2 - ticksize, window_height - border * 2 - ticksize, &pixel_x, &pixel_y);
+	//viewport_transform(border + ticksize, border + ticksize, window_width - border * 2 - ticksize, window_height - border * 2 - ticksize, &pixel_x, &pixel_y);
 	// Tell our vertex shader about it
 	// glUniformMatrix4fv(uniform_vertex_transform, 1, GL_FALSE, glm::value_ptr(transform));
 	glUniformMatrix4fv(uniform_vertex_transform, 1, GL_FALSE, glm::value_ptr(vertex_transform));
@@ -1325,9 +1334,8 @@ glUniform1i( uniform_switch_color, (GLint)0 );
 
 //axis.
 
-			glutSwapBuffers();
 		}
-
+/*
 		void special(int key, int x, int y)
 		{
 //	// TEMPORARY:
@@ -1356,7 +1364,7 @@ glUniform1i( uniform_switch_color, (GLint)0 );
 				switch_scale = false;
 				switch_scale_do_once = true;
 			}
-			datatype = ( datatype + 1 ) % ( GRAPHNUM + 1 /* additional item for test purposes */ );
+			datatype = ( datatype + 1 ) % ( GRAPHNUM + 1 / * additional item for test purposes * / );
 			printf( "Displaying graph for %s\n", graphnames[datatype] );
 		break;
 		case GLUT_KEY_F5:
@@ -1410,10 +1418,18 @@ glUniform1i( uniform_switch_color, (GLint)0 );
 		}
 	glutPostRedisplay();
     }
+*/
 //
 void free_resources()
 {
-	glDeleteProgram( program );
+  glDeleteProgram( program );
+
+  SDL_GL_DeleteContext (sdl_main_context);
+  SDL_DestroyRenderer (SDLGL_renderer);
+  SDL_DestroyWindow (application_window);
+
+  SDL_Quit ();
+
 	//free( zmax );
 	//delete [] zmax;
 	//free( zmin );
@@ -1423,21 +1439,109 @@ void free_resources()
 	//free( graphContainer );
 	delete [] graphContainer;
 }
-//
-    int main(int argc, char *argv[]) {
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
-    glutInitWindowSize(640, 480);
-    glutCreateWindow("");
-    GLenum glew_status = glewInit();
-    if (GLEW_OK != glew_status) {
-    fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
-    return 1;
-    }
-    if (!GLEW_VERSION_2_0) {
-    fprintf(stderr, "No support for OpenGL 2.0 found\n");
-    return 1;
-    }
+
+int main (int argc, char *argv[])
+{
+  (void)argc; (void)argv;
+
+  bool quit = false;
+
+  SDL_Event event;
+
+  SDL_RendererInfo SDLGL_info;
+
+  SDL_SetMainReady();
+
+  SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
+
+  if (SDL_Init (SDL_INIT_VIDEO) < 0)
+  {
+      SDL_LogError (SDL_LOG_CATEGORY_APPLICATION, "Video initialization failed: %s\n", SDL_GetError ());
+      return 1;
+  }
+
+	SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+  SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+  SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 3);
+
+  
+  SDL_GL_SetAttribute (SDL_GL_RED_SIZE, 8);
+  SDL_GL_SetAttribute (SDL_GL_GREEN_SIZE, 8);
+  SDL_GL_SetAttribute (SDL_GL_BLUE_SIZE, 8);
+  SDL_GL_SetAttribute (SDL_GL_DEPTH_SIZE, 16);
+  SDL_GL_SetAttribute (SDL_GL_DOUBLEBUFFER, 1);
+
+  application_window = SDL_CreateWindow ("Curves",
+                                         SDL_WINDOWPOS_UNDEFINED,
+                                         SDL_WINDOWPOS_UNDEFINED,
+                                         640,
+                                         480,
+                                           SDL_WINDOW_OPENGL);
+
+  if (application_window == NULL)
+  {
+    SDL_LogError (SDL_LOG_CATEGORY_APPLICATION, "SDL window initialization failed: %s\n", SDL_GetError ());
+    SDL_Quit ();
+    return 2;
+  }
+
+  sdl_main_context = SDL_GL_CreateContext (application_window);
+
+  if (sdl_main_context == NULL)
+  {
+    SDL_LogError (SDL_LOG_CATEGORY_APPLICATION, "Unable to create OpenGL context: %s\n", SDL_GetError());
+    SDL_DestroyWindow (application_window);
+    SDL_Quit ();
+    return 3;
+  }
+
+  if (SDL_GL_MakeCurrent (application_window, sdl_main_context) < 0)
+  {
+    SDL_LogError (SDL_LOG_CATEGORY_APPLICATION, "Can not set SDL GL context as current context: %s\n", SDL_GetError());
+    SDL_GL_DeleteContext (sdl_main_context);
+    SDL_DestroyWindow (application_window);
+    SDL_Quit ();
+    return 4;
+  }
+
+  SDLGL_renderer = SDL_CreateRenderer (application_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+
+  if (SDLGL_renderer == NULL)
+  {
+    SDL_LogError (SDL_LOG_CATEGORY_APPLICATION, "SDL GL renderer initialization failed: %s", SDL_GetError ());
+    SDL_GL_DeleteContext (sdl_main_context);
+    SDL_DestroyWindow (application_window);
+    SDL_Quit ();
+    return 3;
+  }
+
+  if (SDL_GetRendererInfo (SDLGL_renderer, &SDLGL_info) < 0)
+  {
+    SDL_LogError (SDL_LOG_CATEGORY_APPLICATION, "Could not retrieve SDL renderer info: %s", SDL_GetError ());
+    SDL_DestroyRenderer (SDLGL_renderer);
+    SDL_GL_DeleteContext (sdl_main_context);
+    SDL_DestroyWindow (application_window);
+    SDL_Quit ();
+    return 3;
+  }
+
+
+glewExperimental = GL_TRUE;
+	GLenum glew_status = glewInit();
+	if (glew_status != GLEW_OK)
+	{
+		fprintf(stderr, "Could not init Glew: %s\n", glewGetErrorString(glew_status));
+    SDL_DestroyRenderer (SDLGL_renderer);
+    SDL_GL_DeleteContext (sdl_main_context);
+    SDL_DestroyWindow (application_window);
+    SDL_Quit ();
+    return 4;
+	}
+
+  SDL_GL_SetSwapInterval(1);
+
+
+
     GLint max_units;
     glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &max_units);
     if (max_units < 1) {
@@ -1451,12 +1555,26 @@ void free_resources()
     printf("Press F2 to toggle clamping.\n");
     printf("Press F3 to toggle rotation.\n");
     printf("Press F4 to switch graph.\n");
-    if (init_resources()) {
-    glutDisplayFunc(display);
-    glutIdleFunc(display);
-    glutSpecialFunc(special);
-    glutMainLoop();
+
+  init_resources ();
+  while (!quit)
+  {
+    display ();
+
+    while (SDL_PollEvent (&event)) 
+    {
+      switch (event.type)
+      {
+        case SDL_QUIT:
+          quit = 1;
+          break;
+      }
     }
-    free_resources();
-    return 0;
-    }
+
+    SDL_GL_SwapWindow (application_window);
+  }
+
+  free_resources ();
+
+  return 0;
+}

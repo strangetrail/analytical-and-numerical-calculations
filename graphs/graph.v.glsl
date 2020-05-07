@@ -1,17 +1,12 @@
-//# vi:syntax=glsl
-/****************************************************************************/
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                              graph.v.glsl                                */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/****************************************************************************/
-//
+#version 430
+
+layout (location = 0) in vec3 VertexPosition;
+layout (location = 1) in vec3 VertexNormal;
+
+out vec3 LightIntensity;
+
 attribute vec2 coord2d;
 attribute vec4 coordtext;
-// attribute vec2 coord2dtest;
 varying vec4 graph_coord;
 uniform int switch_transform;
 uniform mat4 transform;
@@ -24,7 +19,8 @@ uniform mat4 vertex_transform180_90; // 5
 uniform mat4 vertex_transform180_90_vert; // 6
 uniform sampler2D mytexture;
 varying vec2 texpos;
-void main(void)
+
+void main()
 {
 	graph_coord = texture_transform * vec4(coord2d, 0, 1);
 	graph_coord.z = (texture2D(mytexture, graph_coord.xy / 2.0 + 0.5).r);
@@ -70,4 +66,6 @@ void main(void)
 			}
 		}
 	}
+
+	LightIntensity = vec3(0.7, 0.7, 0.7);
 }
