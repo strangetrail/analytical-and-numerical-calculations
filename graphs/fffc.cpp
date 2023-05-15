@@ -133,9 +133,9 @@ double dtmp = 0;
 	//return EH;
 }
 //
-template <typename T> T *rotateXY( const double sinR, const double cosR, T x, T y, short ind, const char rMatrix [4][2][2] )
+L_DOUBLE *rotateXY( const double sinR, const double cosR, L_DOUBLE x, L_DOUBLE y, short ind, const char rMatrix [4][2][2] )
 {
-	static T *xy;
+	static L_DOUBLE *xy;
 //
 // #define A002             
 // BGNINIT                  
@@ -145,7 +145,7 @@ template <typename T> T *rotateXY( const double sinR, const double cosR, T x, T 
 // printf(STRINGIZE_TOKEN(A002));
 //
 //
-xy = (T *)malloc( 2 * sizeof ( T ) );
+xy = (L_DOUBLE *)malloc( 2 * sizeof ( L_DOUBLE ) );
 //
 //
 	// getEmptyVectors<T>( 2, &xy, NULL );
@@ -277,7 +277,7 @@ EteQWP = ( Complex * )malloc( 3 * sizeof ( Complex ) );
 				{
 					xLocal = xy[0] - iBeams[ii][jj].x0;
 					yLocal = xy[1] - iBeams[ii][jj].y0;
-					tmpRef = rotateXY<double>( sin225, cos225, xLocal, yLocal, (short)( iBeams[ii][jj].q ), qRotation );
+					tmpRef = rotateXY( sin225, cos225, xLocal, yLocal, (short)( iBeams[ii][jj].q ), qRotation );
 					xLocal = tmpRef[0];
 					yLocal = tmpRef[1];
 					EHte = iBeams[ii][jj].getHE( TE, iBeams[ii][jj], xLocal, yLocal, z ); // HERE

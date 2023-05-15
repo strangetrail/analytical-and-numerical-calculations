@@ -1,6 +1,6 @@
 CXX=g++
 
-_CXXFLAGS= -D_FORTIFY_SOURCE=2 \
+CXXFLAGS= -D_FORTIFY_SOURCE=2 \
           -D_GLIBCXX_ASSERTIONS \
           -fasynchronous-unwind-tables \
           -fexceptions \
@@ -19,18 +19,18 @@ _CXXFLAGS= -D_FORTIFY_SOURCE=2 \
           -Wl,-z,relro \
           -Wextra \
           -Wpedantic
-CXXFLAGS= -O0 \
+_CXXFLAGS= -O0 \
           -Wall \
           -Wextra \
           -Wpedantic \
           -g3 -ggdb -ggdb3 -gdwarf-4
 
-_LDFLAGS= -fpie -Wl,-pie\
+LDFLAGS= -fpie -Wl,-pie\
          -specs=/usr/lib/rpm/redhat/redhat-hardened-ld \
          -Wl,-z,defs \
          -Wl,-z,now \
          -Wl,-z,relro
-LDFLAGS=
+_LDFLAGS=
 
 LDLIBS= -lm \
         -lGL \

@@ -48,6 +48,6 @@ const double tri45 = cos( M_PI / 4 );
 double Lmn( int alpha, int n, double x );
 void doQWP( Complex *Xte,/* Complex *Xte45,*/ Complex *XteQWP, Complex **jQWP );
 void getHEvector( TETM vectype, LGBeam params, double x, double y, double z, Complex **EHlocal );
-template <typename T> T *rotateXY( const double sinR, const double cosR, T x, T y, short ind, const char rMatrix [4][2][2] );
+L_DOUBLE *rotateXY( const double sinR, const double cosR, L_DOUBLE x, L_DOUBLE y, short ind, const char rMatrix [4][2][2] );
 double getWarg( double lensF, double z, double NA );
 //rotateXY<double>( double sinR, double cosR, double x, double y, char **rMatrix );
