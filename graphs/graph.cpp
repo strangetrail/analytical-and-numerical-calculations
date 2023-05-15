@@ -1,11 +1,9 @@
-
-
 /* graph.cpp */
-
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string>
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <SDL2/SDL.h>
@@ -30,6 +28,9 @@
 #define EPSILON_R 1.00058986L
 #define DELTA_EPSILON_R 0.5e-6L
 #define MU 1.25663753e-6 // H / m
+
+int GLOBAL_WIDTH = 800;
+int GLOBAL_HEIGHT = 600;
 
 SDL_Window *application_window;
 SDL_Renderer *SDLGL_renderer;
@@ -923,137 +924,128 @@ void render_text(const char *text, float x, float y, float sx, float sy) {
 //text.
 void display()
 {
-//text:
-  //float sx = 1.0 / 640;
-  //float sy = 1.0 / 480;
-//text.
-//axis:
-  //float window_width = 640;// Was unused for some reason lately.
-  //float window_height = 480;// Was unused for some reason lately.
-//axis.
-//    //graph reevaluation:
-      if ( switch_scale )
-      {
-        reevaluate_graph ( mathGraphContainer, datatype );
+  // Text:
+  //float sx = 1.0 / GLOBAL_WIDTH;
+  //float sy = 1.0 / GLOBAL_HEIGHT;
 
-        // DEBUG:
-        /*
-        printf ( "Reevaluating with scale factor." );
-        */
-        // DEBUG.
+  // Axis:
+  //float window_width = GLOBAL_WIDTH; // Was unused for some reason.
+  //float window_height = GLOBAL_HEIGHT; // Was unused for some reason.
 
-      }
-//    //graph reevaluation.
-//    // reset math scale:
-      if ( switch_scale_do_once )
-      {
-        short datatype_prev = datatype > 0 ? datatype - 1 : GRAPHNUM;
-        scale_math = 1.0;
-        switch_scale = false; // Ensure that mathematical scaling is disabled.
-        reevaluate_graph( mathGraphContainer, datatype_prev );
-        switch_scale_do_once = false;
-        printf( "Scaling switched to use 3D mesh sizes\n" );
-      }
-//    // reset math scale.
-//    //graph selection:
-      glTexImage2D( GL_TEXTURE_2D, 0, GL_LUMINANCE, N, N, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, graphContainer[datatype] );
-//    //graph selection.
+  // Graph reevaluation:
+  if (switch_scale) {
+    reevaluate_graph(mathGraphContainer, datatype);
+
+    // DEBUG:
+    //printf("Reevaluating with scale factor.");
+  }
+
+  // Reset math scale:
+  if (switch_scale_do_once)
+  {
+    short datatype_prev = datatype > 0 ? datatype - 1 : GRAPHNUM;
+    scale_math = 1.0;
+    switch_scale = false; // Ensure that mathematical scaling is disabled.
+    reevaluate_graph(mathGraphContainer, datatype_prev);
+    switch_scale_do_once = false;
+    printf("Scaling switched to use 3D mesh sizes\n");
+  }
+
+  // Graph selection:
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, N, N, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, graphContainer[datatype]);
+
   glUseProgram(program);
-//axis:
-  // glClearColor(1, 1, 1, 1);
+
+  // Axis:
+  //glClearColor(1, 1, 1, 1);
+  //glClear(GL_COLOR_BUFFER_BIT);
+
+  //glClearColor(0.0, 0.0, 0.0, 0.0);
+  //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glUniform1i(uniform_mytexture, 0);
+  glm::mat4 model;
+  if (rotate)
+    model = glm::rotate(glm::mat4(1.0f), float(SDL_GetTicks() / 1000.0), glm::vec3(0.0f, 0.0f, 1.0f));
+  else
+    model = glm::mat4(1.0f);
+  glm::mat4 view = glm::lookAt(glm::vec3(0.0, 2.1, 2.1), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+  glm::mat4 projection = glm::perspective(45.0f, 1.0f * GLOBAL_WIDTH / GLOBAL_HEIGHT, 0.1f, 10.0f);
+  glm::mat4 vertex_transform = projection * view * model;
+  glm::mat4 texture_transform = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, 1)), glm::vec3(offset_x, offset_y, 0));
+  glUniformMatrix4fv(uniform_vertex_transform, 1, GL_FALSE, glm::value_ptr(vertex_transform));
+
+  // additional_transform_180_deg:
+  glm::mat4 model2;
+  model2 = glm::rotate(glm::mat4(1.0f), float(180.0/180.0 * M_PI), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::mat4 vertex_transform2 = vertex_transform * model2;
+  glUniformMatrix4fv(uniform_vertex_transform2, 1, GL_FALSE, glm::value_ptr(vertex_transform2));
+
+  // additional_transform_90_deg:
+  glm::mat4 model90;
+  model90 = glm::rotate(glm::mat4(1.0f), float(90.0/180.0 * M_PI), glm::vec3(1.0f, 0.0f, 0.0f));
+  glm::mat4 vertex_transform90 = vertex_transform * model90;
+  glUniformMatrix4fv(uniform_vertex_transform90, 1, GL_FALSE, glm::value_ptr(vertex_transform90));
+
+  // additional_transform_180_90_deg:
+  glm::mat4 vertex_transform180_90 = vertex_transform2 * model90;
+  glUniformMatrix4fv(uniform_vertex_transform180_90, 1, GL_FALSE, glm::value_ptr(vertex_transform180_90));
+
+  // additional_transform_180_90_deg_vert:
+  glm::mat4 model_vert;
+  model_vert = glm::rotate(glm::mat4(1.0f), float(180.0/180.0 * M_PI), glm::vec3(1.0f, 0.0f, 0.0f));
+  glm::mat4 vertex_transform180_90_vert = vertex_transform180_90 * model_vert;
+  glUniformMatrix4fv(uniform_vertex_transform180_90_vert, 1, GL_FALSE, glm::value_ptr(vertex_transform180_90_vert));
+
+  // additional_transform_textX:
+  glm::mat4 model_textX;
+  model_textX = glm::rotate(glm::mat4(1.0f), float(90.0/180.0 * M_PI), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::mat4 vertex_transform_textX = vertex_transform * model_textX;
+  glUniformMatrix4fv(uniform_vertex_transform_textX, 1, GL_FALSE, glm::value_ptr(vertex_transform_textX));
+
+  glUniformMatrix4fv(uniform_texture_transform, 1, GL_FALSE, glm::value_ptr(texture_transform));
+
+  glClearColor(0.0, 0.0, 0.0, 0.0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  // Set texture wrapping mode
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+  // Set texture interpolation mode
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, interpolate ? GL_LINEAR : GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, interpolate ? GL_LINEAR : GL_NEAREST);
+
+  GLfloat grey[4] = {0.5, 0.5, 0.5, 1};
+  glUniform4fv(uniform_color, 1, grey);
+
+  glEnable(GL_DEPTH_TEST);
+  if (polygonoffset)
+  {
+    glPolygonOffset(1, 0);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+  }
+  /* Draw the grid using the indices to our vertices using our vertex buffer objects */
+  glEnableVertexAttribArray(attribute_coord2d);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+  glVertexAttribPointer(attribute_coord2d, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[8]);
+  glDrawElements(GL_TRIANGLES, 100 * 100 * 6, GL_UNSIGNED_SHORT, 0);
+
+  glPolygonOffset(0, 0);
+  glDisable(GL_POLYGON_OFFSET_FILL);
+
+  /* Draw the grid, very bright */
+  GLfloat bright[4] = { 2, 2, 2, 1 };
+  glUniform4fv(uniform_color, 1, bright);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[1]);
+  glDrawElements(GL_LINES, 100 * 101 * 4, GL_UNSIGNED_SHORT, 0);
+  /* Stop using the vertex buffer object */
+  glDisableVertexAttribArray(attribute_coord2d);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  // glClearColor(0.0, 0.0, 0.0, 0.0);
   // glClear(GL_COLOR_BUFFER_BIT);
-//axis.
-      // glClearColor(0.0, 0.0, 0.0, 0.0);
-      // glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-      glUniform1i(uniform_mytexture, 0);
-      glm::mat4 model;
-      if (rotate)
-        model = glm::rotate(glm::mat4(1.0f), float ( SDL_GetTicks () / 1000.0), glm::vec3(0.0f, 0.0f, 1.0f));
-      else
-        model = glm::mat4(1.0f);
-      glm::mat4 view = glm::lookAt(glm::vec3(0.0, 2.1, 2.1), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-      glm::mat4 projection = glm::perspective(45.0f, 1.0f * 640 / 480, 0.1f, 10.0f);
-      glm::mat4 vertex_transform = projection * view * model;
-      glm::mat4 texture_transform = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, 1)), glm::vec3(offset_x, offset_y, 0));
-      glUniformMatrix4fv(uniform_vertex_transform, 1, GL_FALSE, glm::value_ptr(vertex_transform));
-//
-//additional_transform_180_deg:
-glm::mat4 model2;
-model2 = glm::rotate( glm::mat4( 1.0f ), float ( 180.0/180.0 * M_PI ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
-glm::mat4 vertex_transform2 = vertex_transform * model2;
-glUniformMatrix4fv( uniform_vertex_transform2, 1, GL_FALSE, glm::value_ptr( vertex_transform2 ) );
-//additional_transform_180_deg.
-//
-//additional_transform_90_deg:
-glm::mat4 model90;
-model90 = glm::rotate( glm::mat4( 1.0f ), float ( 90.0/180.0 * M_PI ), glm::vec3( 1.0f, 0.0f, 0.0f ) );
-glm::mat4 vertex_transform90 = vertex_transform * model90;
-glUniformMatrix4fv( uniform_vertex_transform90, 1, GL_FALSE, glm::value_ptr( vertex_transform90 ) );
-//additional_transform_90_deg.
-//
-//additional_transform_180_90_deg:
-glm::mat4 vertex_transform180_90 = vertex_transform2 * model90;
-glUniformMatrix4fv( uniform_vertex_transform180_90, 1, GL_FALSE, glm::value_ptr( vertex_transform180_90 ) );
-//additional_transform_180_90_deg.
-//
-//additional_transform_180_90_deg_vert:
-glm::mat4 model_vert;
-model_vert = glm::rotate( glm::mat4( 1.0f ), float ( 180.0/180.0 * M_PI ), glm::vec3( 1.0f, 0.0f, 0.0f ) );
-glm::mat4 vertex_transform180_90_vert = vertex_transform180_90 * model_vert;
-glUniformMatrix4fv( uniform_vertex_transform180_90_vert, 1, GL_FALSE, glm::value_ptr( vertex_transform180_90_vert ) );
-//additional_transform_180_90_deg_vert.
-//
-//additional_transform_textX:
-glm::mat4 model_textX;
-model_textX = glm::rotate( glm::mat4( 1.0f ), float ( 90.0/180.0 * M_PI ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
-glm::mat4 vertex_transform_textX = vertex_transform * model_textX;
-glUniformMatrix4fv( uniform_vertex_transform_textX, 1, GL_FALSE, glm::value_ptr( vertex_transform_textX ) );
-//additional_transform_textX.
-//
-      glUniformMatrix4fv(uniform_texture_transform, 1, GL_FALSE, glm::value_ptr(texture_transform));
-
-      glClearColor( 0.0, 0.0, 0.0, 0.0 );
-      glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-      /* Set texture wrapping mode */
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-      /* Set texture interpolation mode */
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, interpolate ? GL_LINEAR : GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, interpolate ? GL_LINEAR : GL_NEAREST);
-
-      GLfloat grey[4] = { 0.5, 0.5, 0.5, 1 };
-      glUniform4fv( uniform_color, 1, grey );
-
-      glEnable(GL_DEPTH_TEST);
-      if ( polygonoffset )
-      {
-        glPolygonOffset( 1, 0 );
-        glEnable( GL_POLYGON_OFFSET_FILL );
-      }
-      /* Draw the grid using the indices to our vertices using our vertex buffer objects */
-      glEnableVertexAttribArray(attribute_coord2d);
-      glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-      glVertexAttribPointer(attribute_coord2d, 2, GL_FLOAT, GL_FALSE, 0, 0);
-
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[8]);
-      glDrawElements(GL_TRIANGLES, 100 * 100 * 6, GL_UNSIGNED_SHORT, 0);
-
-      glPolygonOffset(0, 0);
-      glDisable(GL_POLYGON_OFFSET_FILL);
-
-      /* Draw the grid, very bright */
-      GLfloat bright[4] = { 2, 2, 2, 1 };
-      glUniform4fv(uniform_color, 1, bright);
-
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[1]);
-      glDrawElements(GL_LINES, 100 * 101 * 4, GL_UNSIGNED_SHORT, 0);
-      /* Stop using the vertex buffer object */
-      glDisableVertexAttribArray(attribute_coord2d);
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-      // glClearColor(0.0, 0.0, 0.0, 0.0);
-      // glClear(GL_COLOR_BUFFER_BIT);
 
 //text:
 //switch_transform_and_color:
@@ -1515,7 +1507,10 @@ void free_resources()
 
 int main (int argc, char *argv[])
 {
-  (void)argc; (void)argv;
+  if (argc == 3) {
+    GLOBAL_WIDTH = std::stoi(argv[1]);
+    GLOBAL_HEIGHT = std::stoi(argv[2]);
+  }
 
   bool quit = false;
 
@@ -1547,8 +1542,8 @@ int main (int argc, char *argv[])
   application_window = SDL_CreateWindow ("Curves",
                                          SDL_WINDOWPOS_UNDEFINED,
                                          SDL_WINDOWPOS_UNDEFINED,
-                                         640,
-                                         480,
+                                         GLOBAL_WIDTH,
+                                         GLOBAL_HEIGHT,
                                            SDL_WINDOW_OPENGL);
 
   if (application_window == NULL)
