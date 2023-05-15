@@ -22,46 +22,30 @@ void main()
 {
   graph_coord = texture_transform * vec4(coord2d, 0, 1);
   graph_coord.z = (texture(mytexture, graph_coord.xy / 2.0 + 0.5).r);
-  if ( switch_transform == 1 )
-  {
+  if ( switch_transform == 1 ) {
     gl_Position = vertex_transform * vec4(coord2d, 0.0, 1);
   }
-  else
-  {
-    if ( switch_transform == 2 )
-    {
-      gl_Position = vertex_transform * vec4(coordtext.xy, 0, 1);
-      texpos = coordtext.zw;
-    }
-    else
-    {
-      if ( switch_transform == 3 )
-        gl_Position = vertex_transform2 * vec4(coord2d, 0.0, 1);
-      else
-      {
-        if ( switch_transform == 4 )
-          gl_Position = vertex_transform90 * vec4(coord2d, 0.0, 1);
-        else
-        {
-          if ( switch_transform == 5 )
-            gl_Position = vertex_transform180_90 * vec4(coord2d, 0.0, 1);
-          else
-          {
-            if ( switch_transform == 6 )
-              gl_Position = vertex_transform180_90_vert * vec4(coord2d, 0.0, 1);
-            else
-            {
-              if ( switch_transform == 7 )
-              {
-                gl_Position = vertex_transform_textX * vec4(coordtext.xy, 0, 1);
-                texpos = coordtext.zw;
-              }
-              else
-                gl_Position = vertex_transform * vec4(coord2d, graph_coord.z, 1);
-            }
-          }
-        }
-      }
-    }
+  else if ( switch_transform == 2 ) {
+    gl_Position = vertex_transform * vec4(coordtext.xy, 0, 1);
+    texpos = coordtext.zw;
+  }
+  else if ( switch_transform == 3 ) {
+    gl_Position = vertex_transform2 * vec4(coord2d, 0.0, 1);
+  }
+  else if ( switch_transform == 4 ) {
+    gl_Position = vertex_transform90 * vec4(coord2d, 0.0, 1);
+  }
+  else if ( switch_transform == 5 ) {
+    gl_Position = vertex_transform180_90 * vec4(coord2d, 0.0, 1);
+  }
+  else if ( switch_transform == 6 ) {
+    gl_Position = vertex_transform180_90_vert * vec4(coord2d, 0.0, 1);
+  }
+  else if ( switch_transform == 7 ) {
+    gl_Position = vertex_transform_textX * vec4(coordtext.xy, 0, 1);
+    texpos = coordtext.zw;
+  }
+  else {
+   gl_Position = vertex_transform * vec4(coord2d, graph_coord.z, 1);
   }
 }

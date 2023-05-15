@@ -17,20 +17,16 @@ void main()
     factor = 1.0;
   else
     factor = 0.5;
-  if ( switch_color == 1 )
-  {
+  if ( switch_color == 1 ) {
     FragColor = color;
   }
-  else
-  {
-    if ( switch_color == 2 )
-      FragColor = vec4(1, 1, 1, texture(tex, texpos).a) * colortext;
-    else
-    {
-      if ( switch_color == 3 )
-        FragColor = colortest;
-      else
-        FragColor = ( ( /* graph_coord * 0.0 */color * 0.0 + graph_coord.z ) / 1.0 + 0.0 ) * factor;
-    }
+  else if ( switch_color == 2 ) {
+    FragColor = vec4(1, 1, 1, texture(tex, texpos).a) * colortext;
+  }
+  else if ( switch_color == 3 ) {
+    FragColor = colortest;
+  }
+  else {
+    FragColor = ( ( /* graph_coord * 0.0 */color * 0.0 + graph_coord.z ) / 1.0 + 0.0 ) * factor;
   }
 }
