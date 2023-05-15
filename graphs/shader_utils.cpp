@@ -5,7 +5,7 @@
     */
     #include <stdio.h>
     #include <stdlib.h>
-#include <GL/glew.h>
+    #include "shader_utils.h"
     /**
     * Store all the file's contents in memory, useful to pass shaders
     * source code to OpenGL

@@ -1,31 +1,55 @@
+CXX=g++
 
-myPATH=./fffc/
-include ./fffc/mflibfffc.mk
+_CXXFLAGS= -D_FORTIFY_SOURCE=2 \
+          -D_GLIBCXX_ASSERTIONS \
+          -fasynchronous-unwind-tables \
+          -fexceptions \
+          -fpie -Wl,-pie\
+          -fplugin=annobin \
+          -fstack-clash-protection \
+          -fstack-protector-strong \
+          -fcf-protection \
+          -O3 \
+          -pipe \
+          -Wall -Werror=format-security \
+          -specs=/usr/lib/rpm/redhat/redhat-hardened-cc1 \
+          -specs=/usr/lib/rpm/redhat/redhat-annobin-cc1 \
+          -Wl,-z,defs \
+          -Wl,-z,now \
+          -Wl,-z,relro \
+          -Wextra \
+          -Wpedantic
+CXXFLAGS= -O0 \
+          -Wall \
+          -Wextra \
+          -Wpedantic \
+          -g3 -ggdb -ggdb3 -gdwarf-4
 
-currSHELL:=/usr/bin/
+_LDFLAGS= -fpie -Wl,-pie\
+         -specs=/usr/lib/rpm/redhat/redhat-hardened-ld \
+         -Wl,-z,defs \
+         -Wl,-z,now \
+         -Wl,-z,relro
+LDFLAGS=
 
-CXXFLAGS_DEFAULT:=-I/usr/include/freetype2 -I. -I./fffc -g3 -gdwarf-4 -ggdb -Wall -Wpedantic -Wextra
-LDLIBS:=-lm -lGL -lX11 -lfreetype -lSDL2 -lGLEW -lGLU
+LDLIBS= -lm \
+        -lGL \
+        -lX11 \
+        -lfreetype \
+        -lSDL2 \
 
-ifneq ($(CXXFLAGS),)
-	CXXFLAGS :=$(CXXFLAGS) $(CXXFLAGS_DEFAULT)
-else
-	CXXFLAGS :=$(CXXFLAGS_DEFAULT)
-endif
+OBJECTS= graph.o fffc.o libCZTcstm.o libFFTcstm.o libUtils.o shader_utils.o
 
 .PHONY: all clean
+.PRECIOUS: %.o
 
-all: alllibfffc graph
-	
-graph: graph.test2.o common/shader_utils.o
-	$(currSHELL)g++ $(CXXFLAGS) -o graph.elf graph.test2.o shader_utils.o $(myPATH)fffc.o $(myPATH)libCZTcstm.o $(myPATH)libFFTcstm.o $(myPATH)libUtils.o $(LDLIBS) $(LDFLAGS)
+all: graph.elf
 
-graph.test2.o: graph.test2.cpp
-	$(currSHELL)g++ -c $(CXXFLAGS) graph.test2.cpp
+%.elf: $(OBJECTS)
+	$(CXX) -std=c++17 $(LDFLAGS) -o $@ $(OBJECTS) $(LDLIBS)
 
-common/shader_utils.o: common/shader_utils.cpp
-	$(currSHELL)g++ -c $(CXXFLAGS) common/shader_utils.cpp
+%.o: %.cpp
+	$(CXX) -std=c++17 $(CXXFLAGS) -I. -o $@ -c $<
 
-clean: cleanlibfffc
-	$(currSHELL)rm -ifv common/shader_utils.o graph.test2.o shader_utils.o graph.elf *output*txt *Output*txt *.aux *.log *.ps *.dvi *.toc *.los *.pdf *.tex *.pyc *.png *.bak *.so *sympy.c 1
-	$(currSHELL)rm -frv build
+clean:
+	rm -f *.{elf,o}
