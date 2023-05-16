@@ -1,11 +1,11 @@
-#version 330
+#version 430
 
 layout (location = 0) in vec3 VertexPosition;
 layout (location = 1) in vec3 VertexNormal;
 
-attribute vec2 coord2d;
-attribute vec4 coordtext;
-varying vec4 graph_coord;
+in vec2 coord2d;
+in vec4 coordtext;
+out vec4 graph_coord;
 uniform int switch_transform;
 uniform mat4 transform;
 uniform mat4 texture_transform;
@@ -16,7 +16,7 @@ uniform mat4 vertex_transform90; // 4
 uniform mat4 vertex_transform180_90; // 5
 uniform mat4 vertex_transform180_90_vert; // 6
 uniform sampler2D mytexture;
-varying vec2 texpos;
+out vec2 texpos;
 
 void main()
 {

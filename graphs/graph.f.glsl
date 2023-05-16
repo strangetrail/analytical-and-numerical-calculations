@@ -1,4 +1,4 @@
-#version 330
+#version 430
 
 layout( location = 0 ) out vec4 FragColor;
 
@@ -6,9 +6,9 @@ uniform int switch_color;
 uniform vec4 color;
 uniform vec4 colortest;
 uniform vec4 colortext;
-varying vec2 texpos;
+in vec2 texpos;
 uniform sampler2D tex;
-varying vec4 graph_coord;
+in vec4 graph_coord;
 
 void main()
 {
