@@ -31,6 +31,7 @@
 
 int GLOBAL_WIDTH = 800;
 int GLOBAL_HEIGHT = 600;
+double SCALE_MULT = 1.5;
 
 SDL_Window *application_window;
 SDL_Renderer *SDLGL_renderer;
@@ -1459,19 +1460,19 @@ void keyDown(SDL_KeyboardEvent *ev)
     break;
   case SDL_SCANCODE_PAGEUP:
     if ( switch_scale ) {
-      scale_math *= 1.5;
+      scale_math *= SCALE_MULT;
       printf("Z axis scale now equal to %e\n", scale_math);
     }
     else
-      scale *= 1.5;
+      scale *= SCALE_MULT;
     break;
   case SDL_SCANCODE_PAGEDOWN:
     if ( switch_scale ) {
-      scale_math /= 1.5;  /// HERE
+      scale_math /= SCALE_MULT;
       printf("Z axis scale now equal to %e\n", scale_math);
     }
     else
-      scale /= 1.5;
+      scale /= SCALE_MULT;
     break;
   case SDL_SCANCODE_HOME:
     offset_x = 0.0;
@@ -1507,9 +1508,12 @@ void free_resources()
 
 int main (int argc, char *argv[])
 {
-  if (argc == 3) {
+  if (argc > 2) {
     GLOBAL_WIDTH = std::stoi(argv[1]);
     GLOBAL_HEIGHT = std::stoi(argv[2]);
+  }
+  if (argc > 3) {
+    SCALE_MULT = std::stod(argv[3]);
   }
 
   bool quit = false;

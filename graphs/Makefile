@@ -34,9 +34,7 @@ _LDFLAGS=
 
 LDLIBS= -lm \
         -lGL \
-        -lX11 \
-        -lfreetype \
-        -lSDL2 \
+        -lSDL2
 
 OBJECTS= graph.o fffc.o libCZTcstm.o libFFTcstm.o libUtils.o shader_utils.o
 

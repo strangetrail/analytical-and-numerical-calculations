@@ -27,6 +27,6 @@ void main()
     FragColor = colortest;
   }
   else {
-    FragColor = ( ( /* graph_coord * 0.0 */color * 0.0 + graph_coord.z ) / 1.0 + 0.0 ) * factor;
+    FragColor = (graph_coord / 2.0 + 0.5 * graph_coord.z) * color * factor;
   }
 }
