@@ -32,8 +32,7 @@ LDFLAGS= -fpie -Wl,-pie\
          -Wl,-z,relro
 _LDFLAGS=
 
-LDLIBS= -lm \
-        -lGL \
+LDLIBS= -lGL \
         -lSDL2
 
 OBJECTS= graph.o fffc.o libCZTcstm.o libFFTcstm.o libUtils.o shader_utils.o

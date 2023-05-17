@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <AntTweakBar.h>
 //#include <ft2build.h>
 //#include FT_FREETYPE_H
 #include "libUtils.h"
@@ -36,6 +37,8 @@ double SCALE_MULT = 1.5;
 SDL_Window *application_window;
 SDL_Renderer *SDLGL_renderer;
 SDL_GLContext sdl_main_context;
+
+TwBar *myBar;
 
 struct point_text {
   GLfloat x;
@@ -302,6 +305,10 @@ int init_resources()
 //data.
 //text:
 //
+  myBar = TwNewBar("Settings");
+  TwAddVarRW(myBar, "Scaling coefficient", TW_TYPE_DOUBLE, &SCALE_MULT, 
+               " label='Scaling multiplier' min=1.02 max=5.0 step=0.01 help='Defines the speed of scaling.' ");
+
 /* Initialize the FreeType2 library */
 /*
 if (FT_Init_FreeType(&ft)) {
@@ -1328,7 +1335,9 @@ glUniform1i( uniform_switch_color, (GLint)0 );
 
 //axis.
 
-    }
+  TwDraw();
+
+}
 /*
     void special(int key, int x, int y)
     {
@@ -1490,6 +1499,8 @@ void free_resources()
 {
   glDeleteProgram( program );
 
+  TwTerminate();
+
   SDL_GL_DeleteContext (sdl_main_context);
   SDL_DestroyRenderer (SDLGL_renderer);
   SDL_DestroyWindow (application_window);
@@ -1616,19 +1627,26 @@ int main (int argc, char *argv[])
     printf("Press F3 to toggle rotation.\n");
     printf("Press F4 to switch graph.\n");
 
+  TwInit(TW_OPENGL_CORE, NULL);
+  TwWindowSize(GLOBAL_WIDTH, GLOBAL_HEIGHT);
+
   init_resources ();
+  int handled;
   while (!quit)
   {
     display ();
 
     while (SDL_PollEvent(&event)) {
-      switch (event.type) {
-        case SDL_QUIT:
-          quit = 1;
-          break;
-        case SDL_KEYDOWN:
-          keyDown(&event.key);
-          break;
+      handled = TwEventSDL(&event, SDL_MAJOR_VERSION, SDL_MINOR_VERSION);
+      if (!handled) {
+        switch (event.type) {
+          case SDL_QUIT:
+            quit = 1;
+            break;
+          case SDL_KEYDOWN:
+            keyDown(&event.key);
+            break;
+        }
       }
     }
 
