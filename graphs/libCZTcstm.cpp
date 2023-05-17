@@ -74,8 +74,8 @@ for ( i = 0; i < n; i++ )
 }
 //
 //
-	for ( i = 0; i < n; ddi = i + central_axis_delta, i++ )
-		for ( j = 0; j < n; ddj = j + central_axis_delta, j++ )
+	for ( i = 0, ddi = central_axis_delta; i < n; ddi = i + central_axis_delta, i++ )
+		for ( j = 0, ddj = central_axis_delta; j < n; ddj = j + central_axis_delta, j++ )
 		{
 #ifndef PERF_DOMAIN_CHECK
 			tmp_1 = -( ddi + ddj ) * k0;
