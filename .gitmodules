@@ -1,0 +1,3 @@
+[submodule "graphs/anttweakbar"]
+	path = graphs/anttweakbar
+	url = git@github.com:strangetrail/anttweakbar.git
